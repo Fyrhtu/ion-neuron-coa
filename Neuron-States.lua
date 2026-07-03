@@ -7,8 +7,19 @@ local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
+local StanceMap = Neuron.StanceMap
+
+local function readFormName(index)
+	local _, name, _, _, spellId = GetShapeshiftFormInfo(index)
+	if (not name or name == "") and type(spellId) == "number" then
+		name = GetSpellInfo(spellId)
+	end
+	return name
+end
 
 function Neuron.UpdateStanceStrings()
+	Neuron:RefreshStanceMap()
+
 	-- these are the results of the visibility macro conditional in the MANAGED_SECONDARY_STATES table
 	Neuron.VISIBILITY_STATES = {
 		paged1 = L["Page 1"],
@@ -35,8 +46,6 @@ function Neuron.UpdateStanceStrings()
 		group0 = L["No Group"],
 		group1 = L["Group: Raid"],
 		group2 = L["Group: Party"],
-		dragonriding0 = L["No Dragon Riding"],
-		dragonriding1 = L["Dragon Riding"],
 		fishing0 = L["No Fishing Pole"],
 		fishing1 = L["Fishing Pole"],
 		vehicle0 = L["No Vehicle"],
@@ -50,6 +59,12 @@ function Neuron.UpdateStanceStrings()
 		target0 = L["Has Target"],
 		target1 = L["No Target"],
 	}
+
+	if not Neuron.isWoWLegacy then
+		Neuron.VISIBILITY_STATES.dragonriding0 = L["No Dragon Riding"]
+		Neuron.VISIBILITY_STATES.dragonriding1 = L["Dragon Riding"]
+	end
+
 	Neuron.STATES = {
 		homestate = L["Home State"],
 		laststate = L["Last State"],
@@ -57,12 +72,18 @@ function Neuron.UpdateStanceStrings()
 	}
 	MergeTable(Neuron.STATES, Neuron.VISIBILITY_STATES)
 
-
-	--- this is actually a lot of classes. rogues stealth, paladins have
-	--- devo aura, priests have shadowform, etc
-	for i=1,GetNumShapeshiftForms() do
-		local _, _, _, spellID = GetShapeshiftFormInfo(i)
-		Neuron.STATES["stance"..i] = GetSpellInfo(spellID) --Get the string name of the shapeshift form (now that shapeshifts are considered spells)
+	-- Populate stance labels from the dynamic stance map when available.
+	if StanceMap and StanceMap.slots and #StanceMap.slots > 0 then
+		for slot, entry in ipairs(StanceMap.slots) do
+			Neuron.STATES["stance" .. slot] = entry.name
+		end
+	else
+		for i = 1, GetNumShapeshiftForms() do
+			local name = readFormName(i)
+			if name and name ~= "" then
+				Neuron.STATES["stance" .. i] = name
+			end
+		end
 	end
 
 	-- Caster Form is special cased just because that's the way it's been historically
@@ -78,6 +99,23 @@ function Neuron.UpdateStanceStrings()
 		Neuron.STATES["stance3"] = L["Shadow Dance"] --for Subelty Rogues
 	end
 
+	if StanceMap and StanceMap:IsCoAClass(Neuron.class) then
+		Neuron.STATES["stance0"] = L["Humanoid Form"]
+	end
+
+	local stanceStates, stanceVisibility = "[stance:0] stance0; [stance:1] stance1; [stance:2] stance2; [stance:3] stance3; [stance:4] stance4; [stance:5] stance5; [stance:6] stance6;"
+	if StanceMap then
+		stanceStates, stanceVisibility = StanceMap:BuildDriverStrings()
+	end
+
+	local stanceLabel =
+		(StanceMap and StanceMap:IsCoAClass(Neuron.class) and L["Form"]) or
+		(Neuron.class == "ROGUE" and L["Stealth"]) or
+		(Neuron.class == "DRUID" and L["Shapeshift"]) or
+		(Neuron.class == "SHAMAN" and L["Shapeshift"]) or
+		L["Stance"]
+
+	local stanceRangeStop = StanceMap and StanceMap:GetRangeStop() or 8
 
 	-- the "states" and "visibility" fields are macro conditionals. they will
 	-- pass the result of the conditional as "message" into the attribute driver
@@ -98,16 +136,11 @@ function Neuron.UpdateStanceStrings()
 		stance = {
 			modifier = "stance",
 			homestate = "stance0",
-			-- the class with the maximum "stances" is the druid with 6. no need for more than this
-			states = "[stance:0] stance0; [stance:1] stance1; [stance:2] stance2; [stance:3] stance3; [stance:4] stance4; [stance:5] stance5; [stance:6] stance6;",
-			visibility = "[stance:0] stance0; [stance:1] stance1; [stance:2] stance2; [stance:3] stance3; [stance:4] stance4; [stance:5] stance5; [stance:6] stance6;",
+			states = stanceStates,
+			visibility = stanceVisibility,
 			rangeStart = 1,
-			rangeStop = 8,
-			localizedName =
-				(Neuron.class == "ROGUE" and L["Stealth"]) or
-				(Neuron.class == "DRUID" and L["Shapeshift"]) or
-				(Neuron.class == "SHAMAN" and L["Shapeshift"]) or
-				L["Stance"],
+			rangeStop = stanceRangeStop,
+			localizedName = stanceLabel,
 		},
 
 		pet = {
@@ -120,6 +153,7 @@ function Neuron.UpdateStanceStrings()
 			localizedName = L["Pet"],
 		},
 	}
+
 	Neuron.MANAGED_SECONDARY_STATES = {
 		alt = {
 			modifier = "alt",
@@ -164,15 +198,6 @@ function Neuron.UpdateStanceStrings()
 			rangeStart = 1,
 			rangeStop = 1,
 			localizedName = L["Reaction"],
-		},
-
-		dragonriding = {
-			modifier = "dragonriding",
-			states = "[bonusbar:5,nopossessbar] dragonriding1; laststate",
-			visibility = "[possessbar] dragonriding0; [nobonusbar:5] dragonriding0; [bonusbar:5] dragonriding1",
-			rangeStart = 1,
-			rangeStop = 1,
-			localizedName = L["Dragon Riding"],
 		},
 
 		vehicle = {
@@ -302,6 +327,17 @@ function Neuron.UpdateStanceStrings()
 			localizedName = L["Swimming"],
 		},
 	}
+
+	if not Neuron.isWoWLegacy then
+		Neuron.MANAGED_SECONDARY_STATES.dragonriding = {
+			modifier = "dragonriding",
+			states = "[bonusbar:5,nopossessbar] dragonriding1; laststate",
+			visibility = "[possessbar] dragonriding0; [nobonusbar:5] dragonriding0; [bonusbar:5] dragonriding1",
+			rangeStart = 1,
+			rangeStop = 1,
+			localizedName = L["Dragon Riding"],
+		}
+	end
 
 	Neuron.MANAGED_OTHER_STATES = {
 		custom = {

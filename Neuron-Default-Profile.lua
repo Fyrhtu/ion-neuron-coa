@@ -23,10 +23,10 @@ addonTable.defaultProfile.ActionBar = {
 		y = 55,
 		showGrid = true,
 		multiSpec = true,
-		vehicle = true,
-		possess = true,
-		dragonriding = true,
-		override = true,
+		vehicle = not Neuron.isWoWLegacy,
+		possess = not Neuron.isWoWLegacy,
+		dragonriding = not Neuron.isWoWLegacy,
+		override = not Neuron.isWoWLegacy,
 
 		buttons = Array.map(
 			function(key) return { keys = { hotKeys = key}, } end,
@@ -246,7 +246,7 @@ else
 			x = -370,
 			y = 33,
 
-			buttons = Array.initialize(#MICRO_BUTTONS, function() return {} end),
+			buttons = Array.initialize(Neuron.GetMicroButtonCount(), function() return {} end),
 		}
 	}
 end

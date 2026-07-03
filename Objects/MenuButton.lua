@@ -5,28 +5,44 @@
 
 local _, addonTable = ...
 local Neuron = addonTable.Neuron
-local Array = addonTable.utilities.Array
-
 
 ---@class MenuButton : Button @define class MenuButton inherits from class Button
 local MenuButton = setmetatable({}, {__index = Neuron.Button})
 Neuron.MenuButton = MenuButton
 
-local blizzMenuButtons = not Neuron.isWoWRetail
-	and Array.initialize(#MICRO_BUTTONS, function(i) return _G[MICRO_BUTTONS[i]] end)
-	or {
-		CharacterMicroButton,
-		SpellbookMicroButton,
-		TalentMicroButton,
-		AchievementMicroButton,
-		QuestLogMicroButton,
-		GuildMicroButton,
-		LFDMicroButton,
-		CollectionsMicroButton,
-		EJMicroButton,
-		StoreMicroButton,
-		MainMenuMicroButton,
-	}
+local blizzMenuButtons
+
+local function getBlizzMenuButtons()
+	if blizzMenuButtons then
+		return blizzMenuButtons
+	end
+
+	if Neuron.isWoWRetail then
+		blizzMenuButtons = {
+			CharacterMicroButton,
+			SpellbookMicroButton,
+			TalentMicroButton,
+			AchievementMicroButton,
+			QuestLogMicroButton,
+			GuildMicroButton,
+			LFDMicroButton,
+			CollectionsMicroButton,
+			EJMicroButton,
+			StoreMicroButton,
+			MainMenuMicroButton,
+		}
+	else
+		blizzMenuButtons = {}
+		local names = _G.MICRO_BUTTONS or {}
+		for _, name in ipairs(names) do
+			if _G[name] then
+				blizzMenuButtons[#blizzMenuButtons + 1] = _G[name]
+			end
+		end
+	end
+
+	return blizzMenuButtons
+end
 
 ---------------------------------------------------------
 
@@ -51,13 +67,14 @@ end
 function MenuButton:InitializeButton()
 	--TODO: Pet battles and anything using the vehicle bar will be missing these menu buttons.
 
-	if blizzMenuButtons[self.id] then
-		self:SetWidth(blizzMenuButtons[self.id]:GetWidth()-2)
-		self:SetHeight(blizzMenuButtons[self.id]:GetHeight()-2)
+	local buttons = getBlizzMenuButtons()
+	if buttons[self.id] then
+		self:SetWidth(buttons[self.id]:GetWidth()-2)
+		self:SetHeight(buttons[self.id]:GetHeight()-2)
 
 		self:SetHitRectInsets(self:GetWidth()/2, self:GetWidth()/2, self:GetHeight()/2, self:GetHeight()/2)
 
-		self.hookedButton = blizzMenuButtons[self.id]
+		self.hookedButton = buttons[self.id]
 
 		self.hookedButton:ClearAllPoints()
 		self.hookedButton:SetParent(self)

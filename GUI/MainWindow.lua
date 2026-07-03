@@ -16,6 +16,37 @@ local Array = addonTable.utilities.Array
 
 local currentTab = "bar" --remember which tab we were using between refreshes
 
+local EDITOR_MIN_WIDTH = 760
+local EDITOR_MIN_HEIGHT = 520
+
+local function getEditorDimensions()
+	local screenW = UIParent:GetWidth() or GetScreenWidth()
+	local screenH = UIParent:GetHeight() or GetScreenHeight()
+	local width = math.floor(math.min(920, math.max(EDITOR_MIN_WIDTH, screenW * 0.68)))
+	local height = math.floor(math.min(780, math.max(620, screenH * 0.70)))
+	return width, height
+end
+
+local function applyEditorSize(editor)
+	if not editor then
+		return
+	end
+	local width, height = getEditorDimensions()
+	editor:SetWidth(width)
+	editor:SetHeight(height)
+	if editor.frame then
+		editor.frame:SetWidth(width)
+		editor.frame:SetHeight(height)
+		if editor.content then
+			editor.content:SetWidth(width - 34)
+			editor.content:SetHeight(height - 57)
+		end
+	end
+	if editor.DoLayout then
+		editor:DoLayout()
+	end
+end
+
 -----------------------------------------------------------------------------
 --------------------------Main Window----------------------------------------
 -----------------------------------------------------------------------------
@@ -44,13 +75,11 @@ function NeuronGUI:CreateEditor(defaultTab)
 	addonTable.NeuronEditor:SetTitle("Neuron Editor")
 	addonTable.NeuronEditor:EnableResize(true)
 	if addonTable.NeuronEditor.frame.SetResizeBounds then -- WoW 10.0
-		addonTable.NeuronEditor.frame:SetResizeBounds(760,600)
+		addonTable.NeuronEditor.frame:SetResizeBounds(EDITOR_MIN_WIDTH, EDITOR_MIN_HEIGHT)
 	else
-		addonTable.NeuronEditor.frame:SetMinResize(760,600)
+		addonTable.NeuronEditor.frame:SetMinResize(EDITOR_MIN_WIDTH, EDITOR_MIN_HEIGHT)
 	end
-	-- assuming that 720p is a reasonable minimum target for what people will be using
-	addonTable.NeuronEditor:SetWidth("760")
-	addonTable.NeuronEditor:SetHeight(GetScreenHeight() > 850 and "850" or "700")
+	applyEditorSize(addonTable.NeuronEditor)
 	if Neuron.currentBar then
 		addonTable.NeuronEditor:SetStatusText("|cffffd200" .. Neuron.currentBar:GetBarName().."|cFFFFFFFF is currently selected. Left-click a different bar to change your selection.")
 	else
@@ -68,6 +97,7 @@ function NeuronGUI:CreateEditor(defaultTab)
 	end
 	--add all the stuff to the editor window
 	NeuronGUI:PopulateEditorWindow()
+	applyEditorSize(addonTable.NeuronEditor)
 end
 
 function NeuronGUI:DestroyEditor()
@@ -76,22 +106,27 @@ function NeuronGUI:DestroyEditor()
 		addonTable.NeuronEditor = nil
 	end
 
-	Neuron:ToggleBarEditMode()
-	Neuron:ToggleButtonEditMode()
+	if Neuron.barEditMode and addonTable.overlay and addonTable.overlay.BarEditor then
+		addonTable.overlay.BarEditor.syncAll()
+	end
 end
 
 function NeuronGUI:PopulateEditorWindow()
-	local tabs ={{text="Bar Settings", value="bar"}}
-	if Neuron.currentBar.barType == "ActionBar" then
+	Neuron:EnsureBarsExist()
+	Neuron:SelectFirstBar()
+
+	local bar = Neuron.currentBar
+	local tabs = {{text="Bar Settings", value="bar"}}
+	if bar and bar.barType == "ActionBar" then
 		-- only action bars have editable buttons
 		table.insert(tabs, {text=L["Configure Buttons"], value="button"})
-	elseif Neuron.currentBar.barType == "XPBar" then
+	elseif bar and bar.barType == "XPBar" then
 		table.insert(tabs, {text=L["Configure Appearance"], value="status"})
-	elseif Neuron.currentBar.barType == "RepBar" then
+	elseif bar and bar.barType == "RepBar" then
 		table.insert(tabs, {text=L["Configure Appearance"], value="status"})
-	elseif Neuron.currentBar.barType == "CastBar" then
+	elseif bar and bar.barType == "CastBar" then
 		table.insert(tabs, {text=L["Configure Appearance"], value="status"})
-	elseif Neuron.currentBar.barType == "MirrorBar" then
+	elseif bar and bar.barType == "MirrorBar" then
 		table.insert(tabs, {text=L["Configure Appearance"], value="status"})
 	end
 
@@ -107,11 +142,15 @@ function NeuronGUI:PopulateEditorWindow()
 
 	--Tab group that will contain all of our settings to configure
 	local tabFrame = AceGUI:Create("TabGroup")
-	tabFrame:SetLayout("Flow")
+	tabFrame:SetLayout("Fill")
+	tabFrame:SetFullWidth(true)
+	tabFrame:SetFullHeight(true)
 	tabFrame:SetTabs(tabs)
 	tabFrame:SetCallback("OnGroupSelected", function(frame, _, value) NeuronGUI:SelectTab(frame, _, value) end)
 	addonTable.NeuronEditor:AddChild(tabFrame)
 	tabFrame:SelectTab(currentTab)
+	-- AceGUI TabGroup does not always fire OnGroupSelected on programmatic SelectTab (3.3.5).
+	NeuronGUI:SelectTab(tabFrame, nil, currentTab)
 end
 
 

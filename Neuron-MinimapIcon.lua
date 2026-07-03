@@ -20,8 +20,10 @@ local icon
 function Neuron:Minimap_IconInitialize()
 	DB = Neuron.db.profile
 
-	--show new compartment icon even when minimap icon is disabled
-	DB.NeuronIcon.showInCompartment = true
+	-- retail-only addon compartment button
+	if Neuron.isWoWRetail and DB.NeuronIcon then
+		DB.NeuronIcon.showInCompartment = true
+	end
 
 	neuronIconLDB = LibStub("LibDataBroker-1.1"):NewDataObject("Neuron", {
 		type = "launcher",
@@ -38,12 +40,20 @@ end
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 
+local function playClickSound()
+	if SOUNDKIT and SOUNDKIT.IG_CHAT_SCROLL_DOWN then
+		pcall(PlaySound, SOUNDKIT.IG_CHAT_SCROLL_DOWN)
+	elseif PlaySound then
+		pcall(PlaySound, "igMainMenuOptionCheckBoxOn")
+	end
+end
+
 function Neuron:Minimap_OnClickHandler(button)
 	if InCombatLockdown() then
 		return
 	end
 
-	PlaySound(SOUNDKIT.IG_CHAT_SCROLL_DOWN)
+	playClickSound()
 
 	if button == "LeftButton" then
 		if IsShiftKeyDown() then
@@ -60,11 +70,12 @@ function Neuron:Minimap_OnClickHandler(button)
 				else
 					Neuron.NeuronGUI:RefreshEditor("bar")
 				end
-			else
+			elseif addonTable.NeuronEditor then
 				Neuron:ToggleBarEditMode(false)
-				if addonTable.NeuronEditor then
-					Neuron.NeuronGUI:DestroyEditor()
-				end
+				Neuron.NeuronGUI:DestroyEditor()
+			else
+				-- Bar edit mode is on but the editor was closed; reopen it.
+				Neuron.NeuronGUI:CreateEditor("bar")
 			end
 		end
 	elseif button == "RightButton" then
@@ -84,11 +95,11 @@ function Neuron:Minimap_OnClickHandler(button)
 				else
 					Neuron.NeuronGUI:RefreshEditor("button")
 				end
-			else
+			elseif addonTable.NeuronEditor then
 				Neuron:ToggleButtonEditMode(false)
-				if addonTable.NeuronEditor then
-					Neuron.NeuronGUI:DestroyEditor()
-				end
+				Neuron.NeuronGUI:DestroyEditor()
+			else
+				Neuron.NeuronGUI:CreateEditor("button")
 			end
 		end
 	end

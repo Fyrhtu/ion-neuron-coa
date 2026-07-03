@@ -10,6 +10,15 @@ local NeuronGUI = Neuron.NeuronGUI
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
+local function ColorizeWarning(text)
+	if DIM_RED_FONT_COLOR and DIM_RED_FONT_COLOR.WrapTextInColorCode then
+		return DIM_RED_FONT_COLOR:WrapTextInColorCode(text)
+	elseif RED_FONT_COLOR and RED_FONT_COLOR.WrapTextInColorCode then
+		return RED_FONT_COLOR:WrapTextInColorCode(text)
+	end
+	return "|cffff2020" .. text .. "|r"
+end
+
 -----------------------------------------------------------------------------
 --------------------------Interface Menu-------------------------------------
 -----------------------------------------------------------------------------
@@ -23,10 +32,12 @@ local function profileOptions()
 	local options = LibStub("AceDBOptions-3.0"):GetOptionsTable(Neuron.db)
 
 	--enhance the database object with per spec profile features
-	if Neuron.isWoWRetail or Neuron.isWoWWrathClassic then
-		local LibDualSpec = LibStub('LibDualSpec-1.0')
-		LibDualSpec:EnhanceDatabase(Neuron.db, addonName)
-		LibDualSpec:EnhanceOptions(options, Neuron.db) -- enhance the profiles config panel with per spec profile features
+	if Neuron.isWoWRetail or Neuron.isWoWWotLK then
+		local LibDualSpec = LibStub('LibDualSpec-1.0', true)
+		if LibDualSpec then
+			LibDualSpec:EnhanceDatabase(Neuron.db, addonName)
+			LibDualSpec:EnhanceOptions(options, Neuron.db)
+		end
 	end
 	return options
 end
@@ -48,7 +59,7 @@ local function experimentalOptions()
 			Warning = {
 				order = 2,
 				type = "description",
-				name = DIM_RED_FONT_COLOR:WrapTextInColorCode(L["Experimental_Options_Warning"]),
+				name = ColorizeWarning(L["Experimental_Options_Warning"]),
 				fontSize = "large",
 			},
 			importexport={
@@ -73,7 +84,7 @@ local function experimentalOptions()
 					TextBox = {
 						order = 3,
 						name = L["Import or Export the current profile:"],
-						desc = DIM_RED_FONT_COLOR:WrapTextInColorCode(L["ImportExport_WarningDesc"]),
+						desc = ColorizeWarning(L["ImportExport_WarningDesc"]),
 						type = "input",
 						multiline = 22,
 						confirm = function() return L["ImportWarning"] end,
@@ -121,9 +132,13 @@ local function guiOptions()
 		},
 	}
 	for bar, _ in pairs(changes) do
+		local reg = Neuron.registeredBarData[bar]
+		if not reg then
+			changes[bar] = nil
+		else
 		args[bar] = {
 			order = 2,
-			name = Neuron.registeredBarData[bar].barLabel,
+			name = reg.barLabel,
 			desc = L["Shows / Hides the Default Blizzard UI"],
 			type = "toggle",
 			set = function(_, value)
@@ -134,6 +149,7 @@ local function guiOptions()
 			end,
 			width = "full",
 		}
+		end
 	end
 
 	args.NeuronMinimapButton = {

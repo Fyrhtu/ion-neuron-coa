@@ -11,7 +11,10 @@ local DBFixer = addonTable.utilities.DBFixer
 local Array = addonTable.utilities.Array
 local ButtonBinder = addonTable.overlay.ButtonBinder
 local ButtonEditor = addonTable.overlay.ButtonEditor
-local BarEditor = addonTable.overlay.BarEditor
+
+local function GetBarEditor()
+	return addonTable.overlay.BarEditor
+end
 
 ---@class Neuron : AceAddon-3.0 @define The main addon object for the Neuron Action Bar addon
 addonTable.Neuron = LibStub("AceAddon-3.0"):NewAddon(CreateFrame("Frame", nil, UIParent), "Neuron", "AceConsole-3.0", "AceEvent-3.0", "AceHook-3.0", "AceTimer-3.0", "AceSerializer-3.0")
@@ -22,7 +25,7 @@ local DB
 local LibDeflate = LibStub:GetLibrary("LibDeflate")
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
-local LATEST_VERSION_NUM = "1.4.1" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
+local LATEST_VERSION_NUM = "1.4.18-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
 
 --prepare the Neuron table with some sub-tables that will be used down the road
 Neuron.bars = {} --this table will be our main handle for all of our bars.
@@ -37,9 +40,18 @@ Neuron.barEditMode = false
 Neuron.buttonEditMode = false
 Neuron.bindingMode = false
 
+-- Ascension CoA uses a 3.3.5 client that may report WOW_PROJECT_MAINLINE without retail APIs.
+local _, _, _, interfaceVersion = GetBuildInfo()
+interfaceVersion = tonumber(interfaceVersion) or 99999
+local hasRetailAPIs = type(GetNumSpecializationsForClassID) == "function"
+	and type(GetProfessions) == "function"
+
+Neuron.isWoWLegacy = not hasRetailAPIs or interfaceVersion <= 30300
 Neuron.isWoWClassicEra = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 Neuron.isWoWWrathClassic = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
-Neuron.isWoWRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+Neuron.isWoWRetail = hasRetailAPIs and WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+Neuron.isWoWWotLK = Neuron.isWoWWrathClassic or Neuron.isWoWLegacy or not hasRetailAPIs
+Neuron.isAscensionCoA = Neuron.isWoWLegacy
 
 Neuron.STRATAS = {
 	[1] = "BACKGROUND",
@@ -114,35 +126,19 @@ function Neuron:OnEnable()
 	end
 
 	Neuron:RegisterEvent("PLAYER_REGEN_DISABLED")
+	Neuron:RegisterEvent("PLAYER_REGEN_ENABLED")
 	Neuron:RegisterEvent("PLAYER_ENTERING_WORLD")
 	Neuron:RegisterEvent("SPELLS_CHANGED")
 	Neuron:RegisterEvent("CHARACTER_POINTS_CHANGED")
 	Neuron:RegisterEvent("LEARNED_SPELL_IN_TAB")
+	Neuron:RegisterEvent("UPDATE_SHAPESHIFT_FORMS")
+	Neuron:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 
 	Neuron:UpdateStanceStrings()
 
 	--this allows for the "Esc" key to disable the Edit Mode instead of bringing up the game menu, but only if an edit mode is activated.
 
-	if not Neuron:IsHooked(GameMenuFrame, "OnUpdate") then
-		Neuron:HookScript(GameMenuFrame, "OnUpdate", function(self)
-
-			if Neuron.barEditMode then
-				HideUIPanel(self)
-				Neuron:ToggleBarEditMode(false)
-			end
-
-			if Neuron.buttonEditMode then
-				HideUIPanel(self)
-				Neuron:ToggleButtonEditMode(false)
-			end
-
-			if Neuron.bindingMode then
-				HideUIPanel(self)
-				Neuron:ToggleBindingMode(false)
-			end
-
-		end)
-	end
+	Neuron:HookGameMenuFrame()
 
 	Neuron:LoginMessage()
 
@@ -153,7 +149,9 @@ function Neuron:OnEnable()
 
 	--this is a hack for 10.0. They broke everything with regard to the way addons interface with
 	--SecureActionButtons see SecureTemplates.lua SecureActionButton_OnClick() for more information
-	SetCVar("ActionButtonUseKeyDown", 0)
+	if Neuron.isWoWRetail and GetCVar and GetCVar("ActionButtonUseKeyDown") then
+		SetCVar("ActionButtonUseKeyDown", 0)
+	end
 
 	Neuron.NeuronGUI:LoadInterfaceOptions()
 
@@ -164,7 +162,9 @@ end
 --- You would probably only use an OnDisable if you want to
 --- build a "standby" mode, or be able to toggle modules on/off.
 function Neuron:OnDisable()
-	SetCVar("ActionButtonUseKeyDown", 1)
+	if Neuron.isWoWRetail and GetCVar and GetCVar("ActionButtonUseKeyDown") then
+		SetCVar("ActionButtonUseKeyDown", 1)
+	end
 end
 
 -------------------------------------------------
@@ -183,10 +183,44 @@ function Neuron:PLAYER_REGEN_DISABLED()
 	end
 end
 
+function Neuron:PLAYER_REGEN_ENABLED()
+	if Neuron.pendingStanceRefresh then
+		Neuron.pendingStanceRefresh = nil
+		Neuron:OnStanceMapUpdated()
+	end
+end
+
+
+function Neuron:HookGameMenuFrame()
+	local menuFrame = _G.GameMenuFrame
+	if not menuFrame or type(menuFrame.SetScript) ~= "function" then
+		return
+	end
+	if Neuron:IsHooked(menuFrame, "OnUpdate") then
+		return
+	end
+	Neuron:HookScript(menuFrame, "OnUpdate", function(self)
+		if Neuron.barEditMode then
+			HideUIPanel(self)
+			Neuron:ToggleBarEditMode(false)
+		end
+
+		if Neuron.buttonEditMode then
+			HideUIPanel(self)
+			Neuron:ToggleButtonEditMode(false)
+		end
+
+		if Neuron.bindingMode then
+			HideUIPanel(self)
+			Neuron:ToggleBindingMode(false)
+		end
+	end)
+end
 
 function Neuron:PLAYER_ENTERING_WORLD()
 	DB.firstRun = false
 
+	Neuron:HookGameMenuFrame()
 	Neuron:UpdateSpellCache()
 	Neuron:UpdateStanceStrings()
 
@@ -216,6 +250,18 @@ end
 function Neuron:SPELLS_CHANGED()
 	Neuron:UpdateSpellCache()
 	Neuron:UpdateStanceStrings()
+end
+
+function Neuron:UPDATE_SHAPESHIFT_FORMS()
+	if InCombatLockdown() then
+		Neuron.pendingStanceRefresh = true
+		return
+	end
+	Neuron:OnStanceMapUpdated()
+end
+
+function Neuron:UPDATE_SHAPESHIFT_FORM()
+	Neuron:UPDATE_SHAPESHIFT_FORMS()
 end
 
 -------------------------------------------------------------------------
@@ -313,12 +359,20 @@ function Neuron:UpdateSpellCache()
 
 		if (spellName and spellType ~= "FUTURESPELL") and not isPassive then
 
-			altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
-
-			if spellID == altSpellID then
-				altSpellID = nil
+			-- Retail GetSpellInfo(name) can expose an alternate rank/ID; on 3.3.5 the
+			-- seventh return is cast time (often 0), not a spell ID.
+			if Neuron.isWoWLegacy then
 				altName = nil
+				altSpellID = nil
 				altIcon = nil
+			else
+				altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
+
+				if spellID == altSpellID then
+					altSpellID = nil
+					altName = nil
+					altIcon = nil
+				end
 			end
 
 			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
@@ -372,30 +426,59 @@ function Neuron:ToggleMainMenu()
 	InterfaceOptionsFrame_OpenToCategory("Neuron");
 end
 
+function Neuron:SelectFirstBar()
+	if Neuron.currentBar then
+		return Neuron.currentBar
+	end
+	for _, bar in ipairs(Neuron.bars) do
+		Neuron.Bar.ChangeSelectedBar(bar)
+		return bar
+	end
+	return nil
+end
+
+function Neuron:EnsureBarsExist()
+	if #Neuron.bars > 0 then
+		return
+	end
+
+	local empty = true
+	for _, reg in pairs(Neuron.registeredBarData) do
+		for _, entry in pairs(reg.barDB) do
+			if entry then
+				empty = false
+				break
+			end
+		end
+		if not empty then
+			break
+		end
+	end
+
+	if empty then
+		Neuron:InitializeEmptyDatabase(DB)
+	end
+
+	Neuron:CreateBarsAndButtons(DB)
+	for _, bar in pairs(Neuron.bars) do
+		bar:Load()
+	end
+end
+
 function Neuron:ToggleBarEditMode(show)
 	if show then
+		Neuron:EnsureBarsExist()
 		Neuron.barEditMode = true
 		Neuron:ToggleButtonEditMode(false)
 		Neuron:ToggleBindingMode(false)
 
 		for _, bar in pairs(Neuron.bars) do
-			bar.editFrame =
-				bar.editFrame or
-				BarEditor.allocate(bar, function(overlay, button, down)
-					overlay.bar:OnClick(button, down)
-				end)
-
-			bar:UpdateObjectVisibility(true)
-			bar:UpdateBarStatus(true)
-			bar:UpdateObjectStatus()
+			bar:PrepareForEditMode(false)
 		end
 
-		--if there is no bar selected, default to the first in the BarList
-		--TODO: This logic may be unintuitive. Should probably be fixed
-		if not Neuron.currentBar and #Neuron.bars then
-			Neuron.Bar.ChangeSelectedBar(Neuron.bars[1])
-		elseif Neuron.currentBar then
-			BarEditor.activate(Neuron.currentBar.editFrame)
+		Neuron:SelectFirstBar()
+		if Neuron.currentBar then
+			Neuron.currentBar:PrepareForEditMode(true)
 		end
 	else
 		Neuron.barEditMode = false
@@ -403,12 +486,10 @@ function Neuron:ToggleBarEditMode(show)
 			local overlay = bar.editFrame
 			bar.editFrame = nil
 			if overlay then
-				BarEditor.free(overlay)
+				GetBarEditor().free(overlay)
 			end
 
-			bar:UpdateObjectVisibility()
-			bar:UpdateBarStatus()
-			bar:UpdateObjectStatus()
+			bar:LeaveEditMode()
 		end
 	end
 end

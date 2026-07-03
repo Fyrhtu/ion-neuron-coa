@@ -50,10 +50,10 @@ function Button.new(bar, buttonID, baseObj, barClass, objType, template)
 	newButton.id = buttonID
 	newButton.objType = objType
 
-	if not bar.data.buttons[buttonID] then --if the database for a bar doesn't exist (because it's a new bar) make a new table
-		bar.data.buttons[buttonID] = {}
+	if not rawget(bar.data.buttons, buttonID) then
+		rawset(bar.data.buttons, buttonID, Neuron:CreateButtonDatabaseEntry(barClass))
 	end
-	newButton.DB = bar.data.buttons[buttonID] --set our button database table as the DB for our object
+	newButton.DB = rawget(bar.data.buttons, buttonID)
 
 	--this is a hack to add some unique information to an object so it doesn't get wiped from the database
 	if newButton.DB.config then
@@ -130,15 +130,15 @@ function Button:SetCooldownTimer(start, duration, enable, modrate, showCountdown
 
 		if duration > 2 then --sets non GCD cooldowns
 			if charges and charges > 0 and maxCharges > 1 then
-				self.Cooldown:SetDrawSwipe(false);
-				CooldownFrame_Set(self.Cooldown, start, duration, enable, true, modrate) --set clock style cooldown animation. Show Draw Edge.
+				Neuron.SetCooldownSwipe(self.Cooldown, false)
+				Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
 			else
-				self.Cooldown:SetDrawSwipe(true);
-				CooldownFrame_Set(self.Cooldown, start, duration, enable, true, modrate) --set clock style cooldown animation for ability cooldown. Show Draw Edge.
+				Neuron.SetCooldownSwipe(self.Cooldown, true)
+				Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
 			end
 		else --sets GCD cooldowns
-			self.Cooldown:SetDrawSwipe(true);
-			CooldownFrame_Set(self.Cooldown, start, duration, enable, false, modrate) --don't show the Draw Edge for the GCD
+			Neuron.SetCooldownSwipe(self.Cooldown, true)
+			Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, false, modrate)
 		end
 
 		--this is only for abilities that have CD's >4 sec. Any less than that and we don't want to track the CD with text or alpha, just with the standard animation
@@ -273,18 +273,37 @@ function Button:CooldownCounterUpdate()
 end
 
 function Button:LoadDataFromDatabase(curSpec, curState)
-	self.config = self.DB.config
-	self.keys = self.DB.keys
+	if not self.DB then
+		return
+	end
+
+	self.config = self.DB.config or {}
+	self.keys = self.DB.keys or { hotKeyLock = false, hotKeyPri = false, hotKeys = ":" }
 
 	if self.class ~= "ActionBar" then
+		if type(self.DB.data) ~= "table" then
+			self.DB.data = {}
+		end
 		self.data = self.DB.data
 	else
-		self.statedata = self.DB[curSpec] --all of the states for a given spec
-		self.data = self.statedata[curState] --loads a single state of a single spec into self.data
+		curSpec = curSpec or 1
+		curState = curState or "homestate"
+
+		if type(self.DB[curSpec]) ~= "table" then
+			self.DB[curSpec] = { homestate = {} }
+		end
+		self.statedata = self.DB[curSpec]
+
+		if type(self.statedata[curState]) ~= "table" then
+			self.statedata[curState] = {}
+		end
+		self.data = self.statedata[curState]
 
 		for state, data in pairs(self.statedata) do
-			self:SetAttribute(state.."-macro_Text", data.macro_Text)
-			self:SetAttribute(state.."-actionID", data.actionID)
+			if type(state) == "string" and type(data) == "table" then
+				self:SetAttribute(state.."-macro_Text", data.macro_Text)
+				self:SetAttribute(state.."-actionID", data.actionID)
+			end
 		end
 	end
 end
@@ -494,16 +513,23 @@ end
 
 ---Updates the buttons "count", i.e. the spell charges
 function Button:UpdateSpellCount()
-	local charges, maxCharges = GetSpellCharges(self.spell)
-	local count = GetSpellCount(self.spell)
-
-	if maxCharges and maxCharges > 1 then
-		self.Count:SetText(charges)
-	elseif count and count > 0 then
-		self.Count:SetText(count)
-	else
-		self.Count:SetText("")
+	if type(GetSpellCharges) == "function" then
+		local charges, maxCharges = GetSpellCharges(self.spell)
+		if maxCharges and maxCharges > 1 then
+			self.Count:SetText(charges)
+			return
+		end
 	end
+
+	if type(GetSpellCount) == "function" then
+		local count = GetSpellCount(self.spell)
+		if count and count > 0 then
+			self.Count:SetText(count)
+			return
+		end
+	end
+
+	self.Count:SetText("")
 end
 
 
@@ -549,7 +575,10 @@ end
 function Button:UpdateSpellCooldown()
 	if self.spell and self.isShown then
 		local start, duration, enable, modrate = GetSpellCooldown(self.spell)
-		local charges, maxCharges, chStart, chDuration, chargemodrate = GetSpellCharges(self.spell)
+		local charges, maxCharges, chStart, chDuration, chargemodrate
+		if type(GetSpellCharges) == "function" then
+			charges, maxCharges, chStart, chDuration, chargemodrate = GetSpellCharges(self.spell)
+		end
 
 		if charges and maxCharges and maxCharges > 0 and charges < maxCharges then
 			self:SetCooldownTimer(chStart, chDuration, enable, chargemodrate, self.bar:GetShowCooldownText(), self.bar:GetCooldownColor1(), self.bar:GetCooldownColor2(), self.bar:GetShowCooldownAlpha(), charges, maxCharges) --only evoke charge cooldown (outer border) if charges are present and less than maxCharges (this is the case with the GCD)
@@ -565,10 +594,10 @@ function Button:UpdateItemCooldown()
 	if self.item and self.isShown then
 		local start, duration, enable, modrate
 		if Neuron.itemCache[self.item:lower()] then
-			start, duration, enable, modrate = C_Container.GetItemCooldown(Neuron.itemCache[self.item:lower()])
+			start, duration, enable, modrate = Neuron.GetItemCooldownCompat(Neuron.itemCache[self.item:lower()])
 		else
-			local itemID = GetItemInfoInstant(self.item)
-			start, duration, enable, modrate = C_Container.GetItemCooldown(itemID)
+			local itemID = GetItemInfoInstant and GetItemInfoInstant(self.item) or self.item
+			start, duration, enable, modrate = Neuron.GetItemCooldownCompat(itemID)
 		end
 		self:SetCooldownTimer(start, duration, enable, modrate, self.bar:GetShowCooldownText(), self.bar:GetCooldownColor1(), self.bar:GetCooldownColor2(), self.bar:GetShowCooldownAlpha())
 	else

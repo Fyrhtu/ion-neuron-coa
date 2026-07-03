@@ -7,7 +7,10 @@ local _, addonTable = ...
 local Neuron = addonTable.Neuron
 
 local Spec = addonTable.utilities.Spec
-local BarEditor = addonTable.overlay.BarEditor
+
+local function GetBarEditor()
+	return addonTable.overlay.BarEditor
+end
 
 ---@class Bar : CheckButton @This is our bar object that serves as the container for all of our button objects
 local Bar = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
@@ -50,12 +53,14 @@ function Bar.new(class, barID)
 		newBar[key] = value
 	end
 
-	--safety check
-	if not data.barDB[barID] then --if the database for a bar doesn't exist (because it's a new bar?)
-		data.barDB[barID] = {}
+	-- Use rawget/rawset: AceDB bar tables auto-create entries on indexed access.
+	if not rawget(data.barDB, barID) then
+		local entry = Neuron:CreateBarDatabaseEntry(class)
+		entry.y = (entry.y or 190) + (barID - 1) * 45
+		rawset(data.barDB, barID, entry)
 	end
 
-	newBar.data = data.barDB[barID]
+	newBar.data = rawget(data.barDB, barID)
 
 	--create empty buttons table that will hold onto all of our button object handles
 	newBar.buttons = {}
@@ -101,7 +106,7 @@ end
 
 function Bar:InitializeBar()
 	if self.class == "ActionBar" then
-		if Neuron.isWoWRetail or Neuron.isWoWWrathClassic then
+		if Neuron.isWoWRetail or Neuron.isWoWWotLK then
 			self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 		end
 		self:RegisterEvent("ACTIONBAR_SHOWGRID", "ACTIONBAR_SHOWHIDEGRID", true)
@@ -153,18 +158,27 @@ end
 ---This function is used for creating brand new bars, and it is really just a wrapper for the Bar constructor with a couple of assumptions and checks
 function Bar:CreateNewBar(class)
 
-	if not class and Neuron.registeredBarData[class] then --if the class isn't registered, go ahead and bail out.
-		Neuron.PrintBarTypes()
+	if not class or not Neuron.registeredBarData[class] then
+		Neuron:PrintBarTypes()
 		return
 	end
 
-	local barID = #Neuron.registeredBarData[class].barDB + 1 --increment 1 higher than the current number of bars in this class of bar's database
+	local barDB = Neuron.registeredBarData[class].barDB
+	local barID = 1
+	while rawget(barDB, barID) do
+		barID = barID + 1
+	end
 
 	local newBar = Bar.new(class, barID) --create new bar
 
 	newBar.objTemplate.new(newBar, 1) --add at least 1 button to a new bar
+	newBar:Load()
+
 	Bar.ChangeSelectedBar(newBar)
-	newBar:Load() --load the bar
+
+	if Neuron.barEditMode then
+		newBar:PrepareForEditMode(true)
+	end
 	--TODO: Show the transparent blue overlay that we show in the edit mode
 end
 Neuron.CreateNewBar = Bar.CreateNewBar --this is so the slash function works correctly
@@ -278,7 +292,18 @@ function Bar:RemoveObjectFromBar() --called from NeuronGUI
 end
 
 
+function Bar:EnsureMinimumButtons()
+	if #self.buttons > 0 or not self.objTemplate then
+		return false
+	end
+
+	self.objTemplate.new(self, 1)
+	return true
+end
+
+
 function Bar:Load()
+	self:EnsureMinimumButtons()
 	self:SetPosition()
 	self:LoadObjects()
 	self:SetObjectLoc()
@@ -288,21 +313,80 @@ function Bar:Load()
 	self:UpdateBarStatus()
 end
 
+function Bar:PrepareForEditMode(activateOverlay)
+	if InCombatLockdown() then
+		return
+	end
+
+	self:Show()
+
+	if self.handler then
+		self.handler:SetAttribute("editmode", true)
+		self.handler:SetAttribute("concealed", self:GetBarConceal() and true or false)
+		self.handler:Show()
+		self.handler:SetAlpha(1)
+	end
+
+	self:UpdateObjectVisibility(true)
+	self:UpdateBarStatus()
+	self:UpdateObjectStatus()
+
+	if self:EnsureMinimumButtons() then
+		self:Load()
+	end
+
+	if #self.buttons > 0 and not self.right then
+		self:SetObjectLoc()
+		self:SetPerimeter()
+		self:SetSize()
+	end
+
+	if Neuron.barEditMode then
+		if not self.editFrame then
+			self.editFrame = GetBarEditor().allocate(self, function(overlay, button, down)
+				overlay.bar:OnClick(button, down)
+			end)
+		end
+		if self.editFrame and self.editFrame.frame then
+			GetBarEditor().sync(self.editFrame)
+			self.editFrame.frame:Show()
+		end
+		if activateOverlay and self.editFrame then
+			GetBarEditor().activate(self.editFrame)
+		end
+	end
+end
+
+
+function Bar:LeaveEditMode()
+	self:Hide()
+
+	if self.handler then
+		self.handler:SetAttribute("editmode", nil)
+	end
+
+	self:UpdateObjectVisibility()
+	self:UpdateBarStatus()
+end
+
+
 ---@param newBar Bar|nil
 function Bar.ChangeSelectedBar(newBar)
 	if newBar == Neuron.currentBar then
 		return
 	end
 
-	if Neuron.currentBar then
-		BarEditor.deactivate(Neuron.currentBar.editFrame)
-	end
-
-	if newBar then
-		BarEditor.activate(newBar.editFrame)
+	if Neuron.currentBar and Neuron.currentBar.editFrame then
+		GetBarEditor().deactivate(Neuron.currentBar.editFrame)
 	end
 
 	Neuron.currentBar = newBar
+
+	if newBar and Neuron.barEditMode then
+		newBar:PrepareForEditMode(true)
+	elseif newBar and newBar.editFrame then
+		GetBarEditor().activate(newBar.editFrame)
+	end
 end
 
 -----------------------------------
@@ -446,7 +530,30 @@ function Bar:UpdateAlphaUpTimer()
 end
 
 
+function Bar:InitLegacyStates(handler)
+	if self.legacyStatesInitialized or not handler then
+		return
+	end
+
+	handler:SetAttribute("statestack", "homestate")
+	handler:SetAttribute("activestate", "homestate")
+	handler:SetAttribute("state-last", "homestate")
+	handler:SetAttribute("state-current", "homestate")
+	handler:SetAttribute("assertstate", "homestate")
+
+	if self.driver then
+		self.driver:SetAttribute("activestates", "")
+	end
+
+	self.legacyStatesInitialized = true
+end
+
+
 function Bar:AddVisibilityDriver(handler, state, conditions)
+	if Neuron.usesLegacyStateDrivers then
+		return
+	end
+
 	if Neuron.MANAGED_BAR_STATES[state] then
 		RegisterAttributeDriver(handler, "state-"..state, conditions);
 
@@ -466,6 +573,11 @@ end
 
 
 function Bar:ClearVisibilityDriver(handler, state)
+	if Neuron.usesLegacyStateDrivers then
+		self.vis[state].registered = false
+		return
+	end
+
 	UnregisterAttributeDriver(handler, "state-"..state)
 	handler:SetAttribute("activestates", handler:GetAttribute("activestates"):gsub(state.."%d+;", ""))
 	handler:SetAttribute("state-current", "homestate")
@@ -475,6 +587,13 @@ end
 
 
 function Bar:UpdateBarVisibility(driver)
+	if Neuron.usesLegacyStateDrivers then
+		if self.handler then
+			self.handler:SetAttribute("hidestates", self.data.hidestates or ":")
+		end
+		return
+	end
+
 	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
 		if self.data.hidestates:find(":"..state) then
 			if not self.vis[state] or not self.vis[state].registered then
@@ -482,7 +601,14 @@ function Bar:UpdateBarVisibility(driver)
 					self.vis[state] = {}
 				end
 				if state == "stance" and self.data.hidestates:find(":stance8") then
-					self:AddVisibilityDriver(driver,state, "[stance:2/3,stealth] stance8; "..values.visibility)
+					local prowlCond = "[stance:2/3,stealth] stance8"
+					if Neuron.StanceMap and Neuron.StanceMap:UsesLegacyDrivers() then
+						local catEntry = Neuron.StanceMap:GetEntryForSlot(1)
+						if catEntry and catEntry.index then
+							prowlCond = format("[bonusbar:%s,stealth:1] stance8", catEntry.index)
+						end
+					end
+					self:AddVisibilityDriver(driver, state, prowlCond.."; "..values.visibility)
 				else
 					self:AddVisibilityDriver(driver, state, values.visibility)
 				end
@@ -500,17 +626,21 @@ function Bar:BuildStateMap(remapState)
 		if remapState == "stance" and Neuron.class == "ROGUE" and map == "1" then
 			--map = "2"
 		end
+		local condition = state..":"..map
+		if remapState == "stance" and Neuron.StanceMap then
+			condition = Neuron.StanceMap:GetConditionPrefix(map)
+		end
 		if not homestate then
-			statemap = statemap.."["..state..":"..map.."] homestate; "; homestate = true
+			statemap = statemap.."["..condition.."] homestate; "; homestate = true
 		else
 			local newstate = remapState..remap
 
 			if Neuron.MANAGED_BAR_STATES[remapState] and
 					Neuron.MANAGED_BAR_STATES[remapState].homestate and
 					Neuron.MANAGED_BAR_STATES[remapState].homestate == newstate then
-				statemap = statemap.."["..state..":"..map.."] homestate; "
+				statemap = statemap.."["..condition.."] homestate; "
 			else
-				statemap = statemap.."["..state..":"..map.."] "..newstate.."; "
+				statemap = statemap.."["..condition.."] "..newstate.."; "
 			end
 		end
 	end
@@ -520,6 +650,10 @@ end
 
 
 function Bar:AddStates(handler, state, conditions)
+	if Neuron.usesLegacyStateDrivers then
+		return
+	end
+
 	if state then
 		if Neuron.MANAGED_BAR_STATES[state] then
 			RegisterAttributeDriver(handler, "state-"..state, conditions);
@@ -532,6 +666,13 @@ function Bar:AddStates(handler, state, conditions)
 end
 
 function Bar:ClearStates(handler, state)
+	if Neuron.usesLegacyStateDrivers then
+		if self[state] then
+			self[state].registered = false
+		end
+		return
+	end
+
 	if state ~= "homestate" then
 		if Neuron.MANAGED_BAR_STATES[state].homestate then
 			handler:SetAttribute("handler-homestate", nil)
@@ -546,6 +687,11 @@ end
 
 
 function Bar:UpdateStates(handler)
+	if Neuron.usesLegacyStateDrivers then
+		self:InitLegacyStates(handler)
+		return
+	end
+
 	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
 		if self.data[state] then
 			if not self[state] or not self[state].registered then
@@ -867,7 +1013,9 @@ function Bar:CreateWatcher()
 
             end
             ]])
-	RegisterAttributeDriver(watcher, "state-".."petbattle", "[petbattle] hide; [nopetbattle] show");
+	if Neuron.isWoWRetail and RegisterAttributeDriver then
+		RegisterAttributeDriver(watcher, "state-".."petbattle", "[petbattle] hide; [nopetbattle] show");
+	end
 end
 
 function Bar:UpdateBarStatus(show)
@@ -940,7 +1088,7 @@ function Bar:SetPosition()
 		self:StickToPoint(_G[self.data.snapToFrame], self.data.snapToPoint,self:GetHorizontalPad(), self:GetVerticalPad())
 	else
 
-		local point, x, y = self.data.point, self:GetXAxis(), self:GetYAxis()
+		local point, x, y = self.data.point or "CENTER", self:GetXAxis() or 0, self:GetYAxis() or 0
 
 		if point:find("SnapTo") then
 			self.data.point = "CENTER"
@@ -1164,12 +1312,18 @@ function Bar:SetRemap_Stance()
 	if start then
 		self.data.remap = ""
 
-		for i=start,GetNumShapeshiftForms() do
-			self.data.remap = self.data.remap..i..":"..i..";"
+		if Neuron.StanceMap and Neuron.StanceMap.slots and #Neuron.StanceMap.slots > 0 then
+			self.data.remap = self.data.remap..start..":"..start..";"
+			for slot, entry in ipairs(Neuron.StanceMap.slots) do
+				self.data.remap = self.data.remap..entry.uiIndex..":"..slot..";"
+			end
+		else
+			for i = start, GetNumShapeshiftForms() do
+				self.data.remap = self.data.remap..i..":"..i..";"
+			end
 		end
 
 		self.data.remap = gsub(self.data.remap, ";$", "")
-
 
 		if Neuron.class == "ROGUE" then
 			self.data.remap = self.data.remap..";2:2"
@@ -1201,7 +1355,7 @@ function Bar:OnClick(click, down)
 	end
 
 	if IsShiftKeyDown() and not down then
-		BarEditor.microadjust(self.editFrame)
+		GetBarEditor().microadjust(self.editFrame)
 	elseif click == "RightButton" and not down then
 		if not addonTable.NeuronEditor then
 			Neuron.NeuronGUI:CreateEditor()
@@ -1885,7 +2039,7 @@ function Bar:SetXAxis(option)
 end
 
 function Bar:GetXAxis()
-	return self.data.x
+	return self.data.x or 0
 end
 
 function Bar:SetYAxis(option)
@@ -1900,7 +2054,7 @@ function Bar:SetYAxis(option)
 end
 
 function Bar:GetYAxis()
-	return self.data.y
+	return self.data.y or 0
 end
 
 function Bar:SetShowBindText(checked)

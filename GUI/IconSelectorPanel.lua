@@ -172,8 +172,16 @@ function NeuronGUI:GenerateIconList()
 		end
 	end
 
-	GetLooseMacroIcons( iconList );
-	GetLooseMacroItemIcons( iconList );
-	GetMacroIcons( iconList );
-	GetMacroItemIcons( iconList );
+	if type(GetLooseMacroIcons) == "function" then
+		GetLooseMacroIcons(iconList)
+	end
+	if type(GetLooseMacroItemIcons) == "function" then
+		GetLooseMacroItemIcons(iconList)
+	end
+	if type(GetMacroIcons) == "function" then
+		GetMacroIcons(iconList)
+	end
+	if type(GetMacroItemIcons) == "function" then
+		GetMacroItemIcons(iconList)
+	end
 end

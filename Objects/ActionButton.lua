@@ -564,12 +564,17 @@ function ActionButton:AutoWriteMacro(spell)
 		altName = Neuron.spellCache[spell:lower()].altName
 		altSpellID = Neuron.spellCache[spell:lower()].altSpellID
 
-		if altSpellID and IsSpellKnown(altSpellID) then
+		if not altSpellID or altSpellID <= 0 then
+			altSpellID = nil
+			altName = nil
+		end
+
+		if altSpellID and altName and Neuron.IsSpellKnownCompat(altSpellID) then
 			spell = altName
 		else
 			spell = spellName
 		end
-	else
+	elseif not Neuron.isWoWLegacy then
 		_,_,_,_,_,_,spellID = GetSpellInfo(spell)
 	end
 

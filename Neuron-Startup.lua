@@ -37,6 +37,87 @@ local function initializeBar(barClass)
 	end
 end
 
+--- Ensure per-spec / per-state macro data exists on an action button DB entry.
+function Neuron:EnsureButtonSpecData(buttonDB, specIndex, state)
+	if type(buttonDB) ~= "table" then
+		return { homestate = {} }, {}
+	end
+
+	specIndex = specIndex or 1
+	state = state or "homestate"
+
+	local specData = rawget(buttonDB, specIndex)
+	if type(specData) ~= "table" then
+		specData = { homestate = {} }
+		rawset(buttonDB, specIndex, specData)
+	end
+
+	if type(specData[state]) ~= "table" then
+		specData[state] = {
+			actionID = false,
+			macro_Text = "",
+			macro_Icon = false,
+			macro_Name = "",
+			macro_Note = "",
+			macro_UseNote = false,
+			macro_BlizzMacro = false,
+			macro_EquipmentSet = false,
+		}
+	end
+
+	return specData, specData[state]
+end
+
+--- Create a fresh button database entry without AceDB __index side effects.
+function Neuron:CreateButtonDatabaseEntry(barClass)
+	local profileDefaults = addonTable.databaseDefaults.profile[barClass]
+	local buttonSkeleton = profileDefaults and profileDefaults.buttons and profileDefaults.buttons['*']
+
+	if not buttonSkeleton then
+		return {
+			config = { btnType = "macro" },
+			keys = { hotKeyLock = false, hotKeyPri = false, hotKeys = ":" },
+			data = {},
+		}
+	end
+
+	local entry = CopyTable(buttonSkeleton)
+	entry['*'] = nil
+	entry['**'] = nil
+
+	if barClass == "ActionBar" then
+		for specIndex = 1, 5 do
+			if type(entry[specIndex]) ~= "table" then
+				entry[specIndex] = { homestate = {} }
+			elseif type(entry[specIndex].homestate) ~= "table" then
+				entry[specIndex].homestate = {}
+			end
+			entry[specIndex]['*'] = nil
+			entry[specIndex]['**'] = nil
+		end
+	elseif type(entry.data) ~= "table" then
+		entry.data = {}
+	end
+
+	return entry
+end
+
+--- Create a fresh bar database entry without triggering AceDB __index side effects.
+function Neuron:CreateBarDatabaseEntry(barClass)
+	local skeleton = addonTable.databaseDefaults.profile[barClass]
+		and addonTable.databaseDefaults.profile[barClass]['*']
+	if not skeleton then
+		return { buttons = {}, hidestates = ":" }
+	end
+
+	local entry = CopyTable(skeleton)
+	entry.buttons = {}
+	if barClass == "ActionBar" then
+		entry.buttons[1] = Neuron:CreateButtonDatabaseEntry(barClass)
+	end
+	return entry
+end
+
 --- this function has no business existing
 --- database defaults should be in the database
 --- but we have them scattered between neuron-defaults and neuron-db-defaults
@@ -73,9 +154,17 @@ function Neuron:CreateBarsAndButtons(profileData)
 				local newBar = Neuron.Bar.new(barClass, id) --this calls the bar constructor
 
 				--create all the saved button objects for a given bar
-				for buttonID=1,#newBar.data.buttons do
-					newBar.objTemplate.new(newBar, buttonID) --newBar.objTemplate is something like ActionButton or ExtraButton, we just need to code it agnostic
+				local buttonIDs = {}
+				for buttonID in pairs(newBar.data.buttons or {}) do
+					if type(buttonID) == "number" then
+						table.insert(buttonIDs, buttonID)
+					end
 				end
+				table.sort(buttonIDs)
+				for _, buttonID in ipairs(buttonIDs) do
+					newBar.objTemplate.new(newBar, buttonID)
+				end
+				newBar:EnsureMinimumButtons()
 			end
 		end
 	end

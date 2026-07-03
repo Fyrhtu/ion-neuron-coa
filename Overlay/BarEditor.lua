@@ -7,6 +7,10 @@ local _, addonTable = ...
 
 addonTable.overlay = addonTable.overlay or {}
 
+local function GetNeuron()
+	return addonTable.Neuron
+end
+
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
 ---type definition the contents of the xml file
@@ -20,10 +24,96 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 ---@field bar Bar
 ---@field frame NeuronBarFrame
 ---@field microadjust number
+---@field dragging boolean
 ---@field onClick fun(overlay: BarOverlay, button:string, down: boolean):nil
 
 ---@type NeuronBarFrame[]
 local framePool = {}
+
+local DRAG_THRESHOLD_SQ = 16
+
+--- Bar editor overlays must NOT use SecureHandlerStateTemplate; 3.3.5 blocks
+--- StartMoving on secure frames, which prevents drag-to-reposition.
+local function createBarOverlayFrame()
+	local frame = CreateFrame("Button", nil, UIParent)
+	frame:SetMovable(true)
+	frame:EnableMouse(true)
+	frame:SetClampedToScreen(true)
+
+	if not frame.Text then
+		frame.Text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		frame.Text:SetPoint("BOTTOM", frame, "TOP", 0, 1)
+	end
+
+	if not frame.MessageBG then
+		frame.MessageBG = frame:CreateTexture(nil, "BACKGROUND")
+		frame.MessageBG:SetColorTexture(0, 0, 0, 0.9)
+	end
+
+	if not frame.Message then
+		frame.Message = frame:CreateFontString(nil, "OVERLAY", "FriendsFont_UserText")
+		frame.Message:SetPoint("TOP", frame, "BOTTOM", 0, -1)
+		frame.Message:SetJustifyV("TOP")
+	end
+
+	return frame
+end
+
+local function barAnchorPoint(bar)
+	local point = bar.data.point or "CENTER"
+	if point:find("SnapTo") then
+		point = "CENTER"
+	end
+	return point
+end
+
+--- Position overlay from saved bar coordinates. Do not use SetAllPoints(bar):
+--- anchoring a non-secure frame to a SecureHandler bar fails on 3.3.5 and
+--- leaves the overlay at UIParent's default (top-right).
+---@param overlay BarOverlay
+local function syncOverlayToBar(overlay)
+	local bar = overlay.bar
+	overlay.frame:ClearAllPoints()
+	overlay.frame:SetSize(bar:GetWidth(), bar:GetHeight())
+
+	-- While dragging, the bar moves via SetPoint but saved x/y are not updated
+	-- until mouse-up; follow the bar's live center so the highlight stays aligned.
+	if overlay.dragging then
+		local cx, cy = bar:GetCenter()
+		if cx and cy then
+			overlay.frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx, cy)
+			return
+		end
+	end
+
+	local point = barAnchorPoint(bar)
+	overlay.frame:SetPoint("CENTER", UIParent, point, bar:GetXAxis() or 0, bar:GetYAxis() or 0)
+end
+
+local function cursorUIParentXY()
+	local x, y = GetCursorPosition()
+	local scale = UIParent:GetEffectiveScale()
+	return x / scale, y / scale
+end
+
+---@param overlay BarOverlay
+local function stopBarDrag(overlay)
+	overlay.dragging = false
+	overlay.dragPending = false
+	overlay.frame:SetScript("OnUpdate", nil)
+end
+
+---@param overlay BarOverlay
+local function dragBarToCursor(overlay)
+	local x, y = cursorUIParentXY()
+	overlay.bar:SetUserPlaced(false)
+	overlay.bar:ClearAllPoints()
+	overlay.bar:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+	syncOverlayToBar(overlay)
+end
+
+-- forward declare it so the event handlers can use it
+local BarEditor
 
 ---@param overlay BarOverlay
 local function updateAppearance(overlay)
@@ -45,56 +135,121 @@ local function updateAppearance(overlay)
 	if overlay.microadjust == 0 then
 		overlay.frame.Message:Hide()
 		overlay.frame.MessageBG:Hide()
-		overlay.frame:SetFrameStrata(Neuron.STRATAS[overlay.bar:GetStrata()])
+		local Neuron = GetNeuron()
+		if Neuron and Neuron.barEditMode then
+			overlay.frame:SetFrameStrata("TOOLTIP")
+		elseif Neuron then
+			overlay.frame:SetFrameStrata(Neuron.STRATAS[overlay.bar:GetStrata()])
+		end
 	else
 		-- overlay never gets keyboard events unless a high strata
 		-- this hack doesn't work if there is a tooltip level bar
 		-- until you choose that bar and then it starts working for others
-		overlay.frame:SetFrameStrata(Neuron.STRATAS[#Neuron.STRATAS])
+		local Neuron = GetNeuron()
+		if Neuron then
+			overlay.frame:SetFrameStrata(Neuron.STRATAS[#Neuron.STRATAS])
+		end
 		overlay.frame:SetBackdropColor(1,1,0,0.6)
 		overlay.frame.Message:Show()
-		overlay.frame.Message:SetText(overlay.bar.data.point:lower().."     x: "..format("%0.2f", overlay.bar:GetXAxis()).."     y: "..format("%0.2f", overlay.bar:GetYAxis()))
+		local point = overlay.bar.data.point or "CENTER"
+		overlay.frame.Message:SetText(point:lower().."     x: "..format("%0.2f", overlay.bar:GetXAxis() or 0).."     y: "..format("%0.2f", overlay.bar:GetYAxis() or 0))
 		overlay.frame.MessageBG:Show()
 		overlay.frame.MessageBG:SetWidth(overlay.frame.Message:GetWidth()*1.05)
 		overlay.frame.MessageBG:SetHeight(overlay.frame.Message:GetHeight()*1.1)
 	end
 
-	overlay.frame:SetAllPoints(overlay.bar)
+	syncOverlayToBar(overlay)
+	overlay.frame:SetFrameLevel((overlay.bar:GetFrameLevel() or 0) + 10)
 end
-
--- forward declare it so the event handlers can use it
-local BarEditor
 
 ---@param overlay BarOverlay
 local function onEnter(overlay)
-	-- we don't want to mutate the real overlay
-	local fakeOverlay = CopyTable(overlay, true --[[shallow copy]])
+	if overlay.active then
+		return
+	end
 
-	-- this will update the real overlay frame as if active
-	BarEditor.activate(fakeOverlay)
+	-- Hover preview only; do not mutate overlay.active (CopyTable overflows on
+	-- bar/editFrame circular references).
+	local concealed = overlay.bar:GetBarConceal()
+	if concealed then
+		overlay.frame:SetBackdropColor(1, 0, 0, 0.6)
+	else
+		overlay.frame:SetBackdropColor(0, 0, 1, 0.5)
+	end
+	overlay.frame.Text:Show()
 end
 
---TODO: the overlay should not be mutating objects.
---put the movement code into the overlay controller
 ---@param overlay BarOverlay
----@param button string
-local function onDragStart(overlay, button)
+local function dragUpdate(overlay)
+	if not IsMouseButtonDown("LeftButton") then
+		if overlay.dragging then
+			BarEditor.finishDrag(overlay)
+		else
+			overlay.dragPending = false
+			overlay.frame:SetScript("OnUpdate", nil)
+		end
+		return
+	end
+
+	if overlay.dragging then
+		dragBarToCursor(overlay)
+		return
+	end
+
+	if overlay.dragPending then
+		local cx, cy = GetCursorPosition()
+		local dx = cx - overlay.dragStartX
+		local dy = cy - overlay.dragStartY
+		if (dx * dx + dy * dy) >= DRAG_THRESHOLD_SQ then
+			overlay.dragPending = false
+			overlay.dragging = true
+			dragBarToCursor(overlay)
+		end
+	end
+end
+
+---@param overlay BarOverlay
+local function beginDrag(overlay)
+	if overlay.microadjust ~= 0 or overlay.dragging or overlay.dragPending then
+		return
+	end
+
 	overlay.bar.data.snapToPoint = false
 	overlay.bar.data.snapToFrame = false
-
-	overlay.frame:StartMoving()
+	overlay.dragging = true
+	overlay.frame:SetScript("OnUpdate", function()
+		dragUpdate(overlay)
+	end)
 end
 
+---@param overlay BarOverlay
+---@param button string
+local function armDrag(overlay, button)
+	if button ~= "LeftButton" or IsShiftKeyDown() or overlay.microadjust ~= 0 then
+		return
+	end
+	if overlay.dragging or overlay.dragPending then
+		return
+	end
+
+	overlay.bar.data.snapToPoint = false
+	overlay.bar.data.snapToFrame = false
+	overlay.dragPending = true
+	overlay.dragStartX, overlay.dragStartY = GetCursorPosition()
+	overlay.frame:SetScript("OnUpdate", function()
+		dragUpdate(overlay)
+	end)
+end
 
 ---@param overlay BarOverlay
-local function onDragStop(overlay)
+local function finishDrag(overlay)
+	stopBarDrag(overlay)
 
 	local point
-	overlay.frame:StopMovingOrSizing()
 
-	for _,v in pairs(Neuron.bars) do
+	for _,v in pairs(GetNeuron().bars) do
 		if not point and overlay.bar:GetSnapTo() and v:GetSnapTo() and overlay.bar ~= v then
-			point = overlay.bar:Stick(v, Neuron.SNAPTO_TOLERANCE, overlay.bar:GetHorizontalPad(), overlay.bar:GetVerticalPad())
+			point = overlay.bar:Stick(v, GetNeuron().SNAPTO_TOLERANCE, overlay.bar:GetHorizontalPad(), overlay.bar:GetVerticalPad())
 
 			if point then
 				overlay.bar.data.snapToPoint = point
@@ -108,7 +263,7 @@ local function onDragStop(overlay)
 		overlay.bar.data.snapToPoint = false
 		overlay.bar.data.snapToFrame = false
 
-		local newPoint, x, y = overlay.bar.GetPosition(overlay.frame)
+		local newPoint, x, y = overlay.bar:GetPosition()
 		overlay.bar.data.point = newPoint
 		overlay.bar:SetXAxis(x)
 		overlay.bar:SetYAxis(y)
@@ -122,6 +277,24 @@ local function onDragStop(overlay)
 
 	overlay.bar:SetPosition()
 	overlay.bar:UpdateBarStatus()
+	updateAppearance(overlay)
+end
+
+---@param overlay BarOverlay
+---@param button string
+local function onMouseDown(overlay, button)
+	armDrag(overlay, button)
+end
+
+---@param overlay BarOverlay
+---@param button string
+local function onDragStart(overlay, button)
+	beginDrag(overlay)
+end
+
+---@param overlay BarOverlay
+local function onDragStop(overlay)
+	BarEditor.finishDrag(overlay)
 end
 
 ---@param overlay BarOverlay
@@ -180,10 +353,13 @@ BarEditor = {
 			bar = bar,
 			frame = -- try to pop a frame off the stack, otherwise make a new one
 				table.remove(framePool) or
-				CreateFrame("CheckButton", nil, UIParent, "NeuronBarTemplate") --[[@as NeuronBarFrame]],
+				createBarOverlayFrame() --[[@as NeuronBarFrame]],
 			microadjust = 0,
+			dragging = false,
+			dragPending = false,
 			onClick = onClickCallback,
 		}
+		overlay.frame:SetMovable(true)
 		overlay.frame:SetBackdrop({
 			bgFile = "Interface/Tooltips/UI-Tooltip-Background",
 			tile = true,
@@ -196,6 +372,7 @@ BarEditor = {
 		overlay.frame:EnableKeyboard(false)
 		overlay.frame:RegisterForClicks("AnyUp", "AnyDown")
 		overlay.frame:RegisterForDrag("LeftButton")
+		overlay.frame:SetScript("OnMouseDown", function(_, button) onMouseDown(overlay, button) end)
 		overlay.frame:SetScript("OnDragStart", function(_, button) onDragStart(overlay, button) end)
 		overlay.frame:SetScript("OnDragStop", function(_) onDragStop(overlay) end)
 		overlay.frame:SetScript("OnKeyDown", function(_, key) onKeyDown(overlay, key) end)
@@ -208,6 +385,23 @@ BarEditor = {
 		updateAppearance(overlay)
 
 		return overlay
+	end,
+
+	finishDrag = finishDrag,
+
+	---@param overlay BarOverlay
+	sync = function(overlay)
+		stopBarDrag(overlay)
+		updateAppearance(overlay)
+	end,
+
+	syncAll = function()
+		for _, bar in pairs(GetNeuron().bars) do
+			if bar.editFrame then
+				stopBarDrag(bar.editFrame)
+				updateAppearance(bar.editFrame)
+			end
+		end
 	end,
 
 	---@param overlay BarOverlay
@@ -227,8 +421,11 @@ BarEditor = {
 
 	---@param overlay BarOverlay
 	free = function (overlay)
+		stopBarDrag(overlay)
+		overlay.frame:SetScript("OnMouseDown", nil)
 		overlay.frame:SetScript("OnDragStart", nil)
 		overlay.frame:SetScript("OnDragStop", nil)
+		overlay.frame:SetScript("OnUpdate", nil)
 		overlay.frame:SetScript("OnEnter", nil)
 		overlay.frame:SetScript("OnLeave", nil)
 		overlay.frame:SetScript("OnClick", nil)

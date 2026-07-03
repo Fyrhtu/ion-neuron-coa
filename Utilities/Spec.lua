@@ -19,12 +19,13 @@ local Spec; Spec = {
   -- @return the spec index and name
   active = function (multiSpec)
     local index, name
-    if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
+    local hasRetailSpecs = type(GetSpecialization) == "function" and type(GetNumSpecializationsForClassID) == "function"
+    if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and hasRetailSpecs then
       index = GetSpecialization()
       _, name = GetSpecializationInfo(index)
-    elseif WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC then
-      index = GetActiveTalentGroup()
-      name = wrathSpecNames[index]
+    elseif GetActiveTalentGroup then
+      index = GetActiveTalentGroup() or 1
+      name = wrathSpecNames[index] or wrathSpecNames[1]
     else -- classic era or something we don't handle
       index, name = 1, ""
     end
@@ -41,12 +42,13 @@ local Spec; Spec = {
   -- @return the names
   names = function(multiSpec)
     local names
-    if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
+    local hasRetailSpecs = type(GetSpecialization) == "function" and type(GetNumSpecializationsForClassID) == "function"
+    if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and hasRetailSpecs then
       names = Array.initialize(
         GetNumSpecializations(),
         function(i) return select(2, GetSpecializationInfo(i)) end
       )
-    elseif WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC then
+    elseif GetActiveTalentGroup then
       names = wrathSpecNames
     else
       names = {""}

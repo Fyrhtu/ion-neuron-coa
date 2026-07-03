@@ -95,6 +95,19 @@ end
 ---@param update fun(data: GenericSpecData): nil
 ---@return Frame
 local function buttonEditPanel(specData, update)
+	if not specData then
+		specData = {
+			actionID = false,
+			macro_Text = "",
+			macro_Icon = false,
+			macro_Name = "",
+			macro_Note = "",
+			macro_UseNote = false,
+			macro_BlizzMacro = false,
+			macro_EquipmentSet = false,
+		}
+	end
+
 	--container to hold all of our widgets, added to our tab frame
 	local settingContainer = AceGUI:Create("SimpleGroup")
 	settingContainer:SetFullWidth(true)
@@ -177,7 +190,7 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 	specs[5] =  L["No Spec"]
 
 	for specIndex, specName in pairs(specs) do
-		local specData = Neuron.currentButton.DB[specIndex]
+		local specData = select(1, Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, "homestate"))
 
 		local buttonTree = {
 			value = "homestate",
@@ -190,19 +203,28 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 
 		local specButtonTree = AceGUI:Create("TreeGroup")
 		specButtonTree:SetFullWidth(true)
-		specButtonTree:SetLayout("Flow")
+		specButtonTree:SetFullHeight(true)
+		specButtonTree:SetLayout("Fill")
+		if specButtonTree.EnableButtonTooltips then
+			specButtonTree:EnableButtonTooltips(false)
+		end
 		specButtonTree:SetTree({buttonTree})
 		specButtonTree:SetCallback("OnGroupSelected", function(container, _, joinedState)
 			container:ReleaseChildren()
 
-			-- this seems unnecessarily complicated...that moment when you have to
-			-- read the source of your library figure out...this? smh
-			local splitState = {string.split("\001",joinedState)}
-			local state = splitState[#splitState]
+			local splitState = {}
+			for part in string.gmatch(joinedState, "[^\001]+") do
+				splitState[#splitState + 1] = part
+			end
+			if #splitState == 0 then
+				splitState[1] = joinedState
+			end
+			local state = splitState[#splitState] or "homestate"
 
-			local buttonEditor = buttonEditPanel(specData[state], function(data)
+			local _, stateData = Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, state)
+			local buttonEditor = buttonEditPanel(stateData, function(data)
 				for k,v in pairs(data) do
-					specData[state][k] = v
+					stateData[k] = v
 				end
 
 				if Spec.active(multiSpec) ~= specIndex then

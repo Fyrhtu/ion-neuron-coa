@@ -183,6 +183,8 @@ L["Auto-Hide"] = true
 
 L["Paged"] = true
 L["Stance"] = true
+L["Form"] = true
+L["Humanoid Form"] = true
 L["Pet"] = true
 L["Alt"] = true
 L["Ctrl"] = true

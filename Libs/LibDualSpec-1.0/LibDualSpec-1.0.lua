@@ -72,16 +72,18 @@ local AceDB3 = LibStub('AceDB-3.0', true)
 local AceDBOptions3 = LibStub('AceDBOptions-3.0', true)
 local AceConfigRegistry3 = LibStub('AceConfigRegistry-3.0', true)
 
-local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and type(GetNumSpecializationsForClassID) == "function"
 local numSpecs = 2
 local specNames = {TALENT_SPEC_PRIMARY, TALENT_SPEC_SECONDARY}
 if isRetail then
 	-- class id specialization functions don't require player data to be loaded
 	local _, classId = UnitClassBase("player")
-	numSpecs = GetNumSpecializationsForClassID(classId)
-	for i = 1, numSpecs do
-		local _, name = GetSpecializationInfoForClassID(classId, i)
-		specNames[i] = name
+	if type(classId) == "number" then
+		numSpecs = GetNumSpecializationsForClassID(classId)
+		for i = 1, numSpecs do
+			local _, name = GetSpecializationInfoForClassID(classId, i)
+			specNames[i] = name
+		end
 	end
 end
 

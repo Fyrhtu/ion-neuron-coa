@@ -26,7 +26,7 @@ function Neuron:RegisterGUI()
 				RANGEIND = true,
 				CDTEXT = true,
 				CDALPHA = true,
-				SPELLGLOW = true,
+				SPELLGLOW = not Neuron.isWoWLegacy,
 				TOOLTIPS = true,
 			}
 		},

@@ -19,7 +19,21 @@ local selectedBarType --remember which bar type was selected for creating new ba
 -----------------------------------------------------------------------------
 function NeuronGUI:BarEditPanel(tabFrame)
 
-	Neuron:ToggleBarEditMode(true)
+	if not Neuron.barEditMode then
+		Neuron:ToggleBarEditMode(true)
+	else
+		for _, bar in pairs(Neuron.bars) do
+			bar:PrepareForEditMode(bar == Neuron.currentBar)
+		end
+	end
+
+	-- Outer tab content uses AceGUI "Fill" which only sizes its first child.
+	-- Wrap all bar-editor widgets in a single List container.
+	local panel = AceGUI:Create("SimpleGroup")
+	panel:SetFullWidth(true)
+	panel:SetFullHeight(true)
+	panel:SetLayout("List")
+	tabFrame:AddChild(panel)
 
 	-------------------------------
 	--Container for the top Row
@@ -28,7 +42,7 @@ function NeuronGUI:BarEditPanel(tabFrame)
 	topRow:SetHeight(50)
 	topRow:SetAutoAdjustHeight(false)
 	topRow:SetLayout("Flow")
-	tabFrame:AddChild(topRow)
+	panel:AddChild(topRow)
 
 	-------------------------------
 	local spacer1 = AceGUI:Create("SimpleGroup")
@@ -47,7 +61,7 @@ function NeuronGUI:BarEditPanel(tabFrame)
 	local barListDropdown = AceGUI:Create("Dropdown")
 	barListDropdown:SetWidth(180)
 	barListDropdown:SetLabel("Switch selected bar:")
-	barListDropdown:SetText(Neuron.currentBar:GetBarName() or "")
+	barListDropdown:SetText(Neuron.currentBar and Neuron.currentBar:GetBarName() or "")
 	barListDropdown:SetList(barList) --assign the bar type table to the dropdown menu
 	barListDropdown:SetCallback("OnValueChanged", function(self, callBackType, key) Neuron.Bar.ChangeSelectedBar(key); NeuronGUI:RefreshEditor() end)
 	topRow:AddChild(barListDropdown)
@@ -112,6 +126,7 @@ function NeuronGUI:BarEditPanel(tabFrame)
 		innerTabFrame:SetLayout("Fill")
 		innerTabFrame:SetFullHeight(true)
 		innerTabFrame:SetFullWidth(true)
+		innerTabFrame:SetHeight(520)
 		--only show the states tab if the bar is an ActionBar
 		if Neuron.currentBar.class=="ActionBar" then
 			innerTabFrame:SetTabs({{text="General Configuration", value="general"}, {text="Bar States", value="states"}, {text="Bar Visibility", value="visibility"}})
@@ -122,14 +137,15 @@ function NeuronGUI:BarEditPanel(tabFrame)
 			end
 		end
 		innerTabFrame:SetCallback("OnGroupSelected", function(self, _, value) NeuronGUI:SelectInnerBarTab(self, _, value) end)
-		tabFrame:AddChild(innerTabFrame)
+		panel:AddChild(innerTabFrame)
 
 		innerTabFrame:SelectTab(currentTab)
+		NeuronGUI:SelectInnerBarTab(innerTabFrame, nil, currentTab)
 	else
 		local selectBarMessage = AceGUI:Create("Label")
 		selectBarMessage:SetText("Please select a bar to continue")
 		selectBarMessage:SetFont("Fonts\\FRIZQT__.TTF", 30)
-		tabFrame:AddChild(selectBarMessage)
+		panel:AddChild(selectBarMessage)
 	end
 end
 
