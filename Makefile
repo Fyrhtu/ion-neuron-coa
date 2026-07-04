@@ -15,9 +15,26 @@ RSYNC_EXCLUDES := \
 	--exclude='shell.nix' \
 	--exclude='Makefile'
 
-.PHONY: all install symlink watch clean
+VERSION := $(shell grep '^## Version:' Neuron.toc | sed 's/.*: //')
+ADDON_NAME := Neuron
+DIST_DIR := dist
+DIST_NAME := $(ADDON_NAME)-$(VERSION)
+STAGING := $(DIST_DIR)/$(ADDON_NAME)
+
+.PHONY: all install symlink watch clean package version
 
 all: install
+
+version:
+	@echo $(VERSION)
+
+package:
+	@rm -rf "$(DIST_DIR)"
+	@mkdir -p "$(STAGING)"
+	rsync -a $(RSYNC_EXCLUDES) "$(NEURON_SRC)/" "$(STAGING)/"
+	@cd "$(DIST_DIR)" && zip -qr "$(DIST_NAME).zip" "$(ADDON_NAME)"
+	@echo "Created $(DIST_DIR)/$(DIST_NAME).zip"
+	@echo "Install: unzip into World of Warcraft/Interface/AddOns/"
 
 install:
 	@test -n "$(NEURON_INSTALL_DIR)" || (echo "NEURON_INSTALL_DIR is not set" && exit 1)
