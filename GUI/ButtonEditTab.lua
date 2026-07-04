@@ -150,7 +150,14 @@ local function buttonEditPanel(specData, update)
 	macroEditFrame:SetText(type(specData.macro_Text) == "string" and specData.macro_Text or "")
 	macroEditFrame:DisableButton(true)
 	macroEditFrame:SetCallback("OnTextChanged", function(_, _, text)
-		updateAndRefreshIcon{macro_Text = text}
+		local updates = { macro_Text = text }
+		-- Clearing macro text manually must drop linked Blizzard macro / equipset
+		-- metadata or UPDATE_MACROS can repopulate the button and block drag auto-write.
+		if type(text) ~= "string" or not text:match("%S") then
+			updates.macro_BlizzMacro = false
+			updates.macro_EquipmentSet = false
+		end
+		updateAndRefreshIcon(updates)
 	end)
 	mainContainer:AddChild(macroEditFrame)
 
@@ -160,11 +167,19 @@ local function buttonEditPanel(specData, update)
 	buttonContainer:SetFullWidth(true)
 	buttonContainer:SetLayout("Flow")
 
-	--reset icon button
-	--disabled or now, until we have a real icon picker
+	local clearButton = AceGUI:Create("Button")
+	clearButton:SetText(L["Clear Button"])
+	clearButton:SetCallback("OnClick", function()
+		local reset = CopyTable(Neuron.ActionButton.EMPTY_STATE_DATA)
+		update(reset)
+		labelEditFrame:SetText("")
+		macroEditFrame:SetText("")
+		refreshIconPreview(previewIconFrame, specData)
+	end)
+	buttonContainer:AddChild(clearButton)
+
 	local resetIconButton = AceGUI:Create("Button")
-	--resetIconButton:SetRelativeWidth(0.15)
-	resetIconButton:SetText("Reset Icon")
+	resetIconButton:SetText(L["Reset Icon"])
 	resetIconButton:SetCallback("OnClick", function()
 		updateAndRefreshIcon{macro_Icon = false}
 	end)

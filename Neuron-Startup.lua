@@ -68,10 +68,37 @@ function Neuron:EnsureButtonSpecData(buttonDB, specIndex, state)
 	return specData, specData[state]
 end
 
+--- Button skeleton lives under profile[barClass]['*'].buttons['*'], not profile[barClass].buttons.
+function Neuron:GetButtonSkeleton(barClass)
+	local barDefaults = addonTable.databaseDefaults.profile[barClass]
+	local barSkeleton = barDefaults and barDefaults['*']
+	return barSkeleton and barSkeleton.buttons and barSkeleton.buttons['*']
+end
+
+--- Fill missing button config keys from the database skeleton (e.g. cast bar width/height).
+function Neuron:MergeButtonConfigDefaults(barClass, config)
+	local buttonSkeleton = Neuron:GetButtonSkeleton(barClass)
+	local defaults = buttonSkeleton and buttonSkeleton.config
+	if not defaults then
+		return config or {}
+	end
+
+	config = config or {}
+	for k, v in pairs(defaults) do
+		if config[k] == nil then
+			if type(v) == "table" then
+				config[k] = CopyTable(v)
+			else
+				config[k] = v
+			end
+		end
+	end
+	return config
+end
+
 --- Create a fresh button database entry without AceDB __index side effects.
 function Neuron:CreateButtonDatabaseEntry(barClass)
-	local profileDefaults = addonTable.databaseDefaults.profile[barClass]
-	local buttonSkeleton = profileDefaults and profileDefaults.buttons and profileDefaults.buttons['*']
+	local buttonSkeleton = Neuron:GetButtonSkeleton(barClass)
 
 	if not buttonSkeleton then
 		return {

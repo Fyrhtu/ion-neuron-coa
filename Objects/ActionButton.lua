@@ -16,6 +16,27 @@ Neuron.ActionButton = ActionButton
 -------------------declare globals-----------------------
 ---------------------------------------------------------
 
+--- Empty per-state action button payload (homestate, stealth1, etc.).
+ActionButton.EMPTY_STATE_DATA = {
+	actionID = false,
+	macro_Text = "",
+	macro_Icon = false,
+	macro_Name = "",
+	macro_Note = "",
+	macro_UseNote = false,
+	macro_BlizzMacro = false,
+	macro_EquipmentSet = false,
+}
+
+function ActionButton.ResetStateData(data)
+	if type(data) ~= "table" then
+		return
+	end
+	for k, v in pairs(ActionButton.EMPTY_STATE_DATA) do
+		data[k] = v
+	end
+end
+
 local COMMAND_LIST = {
 	[SLASH_CAST1] = true,
 	[SLASH_CAST2] = true,

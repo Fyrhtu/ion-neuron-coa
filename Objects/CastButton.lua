@@ -55,12 +55,12 @@ function CastButton:InitializeButton()
 
 	self.holdTime = 0
 
-	self:SetScript("OnUpdate", function(self, elapsed) self:OnUpdate(elapsed) end)
-
 	self.StatusBar:Hide()
 	self.typeString = L["Cast Bar"]
 
 	self:InitializeButtonSettings()
+
+	self:SetScript("OnUpdate", function(self, elapsed) self:OnUpdate(elapsed) end)
 end
 
 function CastButton:OnEvent(event,...)
@@ -76,14 +76,9 @@ function CastButton:OnEvent(event,...)
 	end
 
 	if event == "UNIT_SPELLCAST_START" then
-		local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible
-		if Neuron.isWoWRetail then
-			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = UnitCastingInfo(unit)
-		else
-			name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = CastingInfo() --classic doesn't have UnitCastingInfo()
-		end
+		local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = Neuron.GetCastingInfo(unit)
 
-		if not name then
+		if not name or not startTime or not endTime then
 			self:Reset()
 			return
 		end
@@ -127,9 +122,9 @@ function CastButton:OnEvent(event,...)
 		self.StatusBar:Show()
 
 	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
-		local name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = UnitChannelInfo(unit)
+		local name, text, texture, startTime, endTime, isTradeSkill, notInterruptible = Neuron.GetChannelInfo(unit)
 
-		if not name then
+		if not name or not startTime or not endTime then
 			self:Reset()
 			return
 		end
@@ -196,7 +191,7 @@ function CastButton:OnEvent(event,...)
 
 	elseif event == "UNIT_SPELLCAST_DELAYED" then
 		if self.StatusBar:IsShown() then
-			local name, text, texture, startTime, endTime, isTradeSkill = UnitCastingInfo(unit)
+			local name, text, texture, startTime, endTime, isTradeSkill = Neuron.GetCastingInfo(unit)
 			if not name then
 				self:Reset()
 				return
@@ -221,7 +216,7 @@ function CastButton:OnEvent(event,...)
 
 	elseif event == "UNIT_SPELLCAST_CHANNEL_UPDATE" then
 		if self.StatusBar:IsShown() then
-			local name, text, texture, startTime, endTime, isTradeSkill = UnitChannelInfo(unit)
+			local name, text, texture, startTime, endTime, isTradeSkill = Neuron.GetChannelInfo(unit)
 			if not name then
 				self:Reset()
 				return

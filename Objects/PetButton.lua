@@ -298,7 +298,7 @@ end
 
 --overwrite function in parent class Button
 function PetButton:UpdateVisibility(show)
-	if (self.bar:GetShowGrid() and IsPetActive()) or (self.actionID and GetPetActionInfo(self.actionID) and IsPetActive()) or show then
+	if (self.bar:GetShowGrid() and Neuron.IsPetActiveCompat()) or (self.actionID and GetPetActionInfo(self.actionID) and Neuron.IsPetActiveCompat()) or show then
 		self.isShown = true
 	else
 		self.isShown = false

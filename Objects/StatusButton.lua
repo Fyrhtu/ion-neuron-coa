@@ -52,6 +52,11 @@ function StatusButton.new(bar, buttonID, defaults, barObj, barType, objType)
 end
 
 function StatusButton:InitializeButtonSettings()
+	if self.DB then
+		self.DB.config = Neuron:MergeButtonConfigDefaults(self.class, self.DB.config)
+		self.config = self.DB.config
+	end
+
 	self:SetFrameStrata(Neuron.STRATAS[self.bar:GetStrata()-1])
 	self:SetScale(self.bar:GetBarScale())
 

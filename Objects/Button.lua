@@ -277,7 +277,8 @@ function Button:LoadDataFromDatabase(curSpec, curState)
 		return
 	end
 
-	self.config = self.DB.config or {}
+	self.DB.config = Neuron:MergeButtonConfigDefaults(self.class, self.DB.config)
+	self.config = self.DB.config
 	self.keys = self.DB.keys or { hotKeyLock = false, hotKeyPri = false, hotKeys = ":" }
 
 	if self.class ~= "ActionBar" then
@@ -360,11 +361,26 @@ function Button:HasAction()
 		elseif self.class == "PetBar" and GetPetActionInfo(self.actionID) then
 			return true
 		end
-	elseif self.spell or self.item then
-		return true
-	else
-		return false
 	end
+
+	if self.spell or self.item then
+		return true
+	end
+
+	local macroText = self:GetMacroText()
+	if type(macroText) == "string" and macroText:match("%S") then
+		return true
+	end
+
+	if self:GetMacroBlizzMacro() then
+		return true
+	end
+
+	if self:GetMacroEquipmentSet() then
+		return true
+	end
+
+	return false
 end
 
 

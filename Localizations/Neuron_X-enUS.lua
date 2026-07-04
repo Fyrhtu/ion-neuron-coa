@@ -275,6 +275,8 @@ L["Keybind_Tooltip_4"] = "Right-Click to give these bindings maximum priority"
 L["Keybind_Tooltip_5"] = "Hit ESC to clear the current binding(s)"
 
 L["Empty Button"] = true
+L["Clear Button"] = true
+L["Reset Icon"] = true
 L["Edit Bindings"] = true
 L["None"] = true
 
