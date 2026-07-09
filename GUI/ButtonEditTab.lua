@@ -14,16 +14,17 @@ local AceGUI = LibStub("AceGUI-3.0")
 local Spec = addonTable.utilities.Spec
 local Array = addonTable.utilities.Array
 
+local TREE_SEP = "\001"
+
 -----------------------------------------------------------------------------
 --------------------------Button Editor--------------------------------------
 -----------------------------------------------------------------------------
 
 local function refreshIconPreview(frame, data)
-	--try to get the texture currently on the button itself
 	local texture = Neuron.currentButton:GetAppearance(data)
 	if texture then
 		frame:SetImage(texture)
-	else --fallback to question mark icon if nothing is found
+	else
 		frame:SetImage("INTERFACE\\ICONS\\INV_MISC_QUESTIONMARK")
 	end
 end
@@ -33,21 +34,15 @@ local function visibilityMatchesBarState(barState, visibilityState)
 	if not managed or not managed.states then
 		return false
 	end
-
 	if not managed.states:find(visibilityState, 1, true) then
 		return false
 	end
-
-	-- Default form (stance0) is edited via the homestate root node.
 	if managed.homestate == visibilityState then
 		return false
 	end
-
 	return true
 end
 
--- States come from VISIBILITY_STATES for enabled bar modifiers, plus explicit
--- form slots when Form/Stance is the bar home state.
 local function getStateList()
 	local barData = Neuron.currentButton.bar.data
 
@@ -74,7 +69,6 @@ local function getStateList()
 		for _, state in ipairs(visibilityStates) do
 			seen[state] = true
 		end
-
 		local stanceInfo = Neuron.MANAGED_BAR_STATES.stance
 		local rangeStop = stanceInfo and stanceInfo.rangeStop or 8
 		for slot = 1, rangeStop do
@@ -84,19 +78,14 @@ local function getStateList()
 				seen[stateKey] = true
 			end
 		end
-
 		table.sort(visibilityStates, function(a, b)
 			local aStance = a:match("^stance(%d+)$")
 			local bStance = b:match("^stance(%d+)$")
 			if aStance and bStance then
 				return tonumber(aStance) < tonumber(bStance)
 			end
-			if aStance then
-				return true
-			end
-			if bStance then
-				return false
-			end
+			if aStance then return true end
+			if bStance then return false end
 			return a < b
 		end)
 	end
@@ -114,8 +103,22 @@ local function getHomeStateLabel()
 	return Neuron.STATES.homestate
 end
 
----@param specData GenericSpecData
----@param update fun(data: GenericSpecData): nil
+--- Parse AceGUI TreeGroup unique value into spec index + bar state.
+local function parseTreeSelection(joinedState, multiSpec)
+	local parts = {}
+	for part in string.gmatch(joinedState or "", "[^" .. TREE_SEP .. "]+") do
+		parts[#parts + 1] = part
+	end
+	if multiSpec then
+		local specIndex = tonumber(parts[1]) or Spec.active(true) or 1
+		local state = parts[2] or "homestate"
+		return specIndex, state
+	end
+	return 1, (parts[#parts] or parts[1] or "homestate")
+end
+
+---@param specData table
+---@param update fun(data: table): nil
 ---@return Frame
 local function buttonEditPanel(specData, update)
 	if not specData then
@@ -131,17 +134,14 @@ local function buttonEditPanel(specData, update)
 		}
 	end
 
-	--container to hold all of our widgets, added to our tab frame
 	local settingContainer = AceGUI:Create("SimpleGroup")
 	settingContainer:SetFullWidth(true)
 	settingContainer:SetLayout("Flow")
 
-
-	--edit box to show the macro label
 	local labelEditFrame = AceGUI:Create("EditBox")
 	labelEditFrame:SetLabel("Edit Label")
 	labelEditFrame:SetRelativeWidth(1)
-	labelEditFrame:SetText(type(specData.macro_Text) == "string" and specData.macro_Name or "")
+	labelEditFrame:SetText(type(specData.macro_Name) == "string" and specData.macro_Name or "")
 	labelEditFrame:DisableButton(true)
 	labelEditFrame:SetCallback("OnTextChanged", function(_, _, text)
 		update{macro_Name = text}
@@ -153,19 +153,18 @@ local function buttonEditPanel(specData, update)
 	mainContainer:SetLayout("Flow")
 	mainContainer:SetHeight(200)
 
-	--icon button that represents the currently selected icon
-	local previewIconFrame=AceGUI:Create("Icon")
+	local previewIconFrame = AceGUI:Create("Icon")
 	refreshIconPreview(previewIconFrame, specData)
-	previewIconFrame:SetImageSize(60,60)
+	previewIconFrame:SetImageSize(60, 60)
 	previewIconFrame:SetWidth(60)
 	previewIconFrame:SetCallback("OnClick", function() NeuronGUI:IconFrame_OnClick() end)
 	mainContainer:AddChild(previewIconFrame)
+
 	local updateAndRefreshIcon = function(data)
 		update(data)
 		refreshIconPreview(previewIconFrame, specData)
 	end
 
-	--edit box to show the current macro
 	local macroEditFrame = AceGUI:Create("MultiLineEditBox")
 	macroEditFrame:SetLabel("Edit Macro")
 	macroEditFrame:SetWidth(420)
@@ -174,8 +173,6 @@ local function buttonEditPanel(specData, update)
 	macroEditFrame:DisableButton(true)
 	macroEditFrame:SetCallback("OnTextChanged", function(_, _, text)
 		local updates = { macro_Text = text }
-		-- Clearing macro text manually must drop linked Blizzard macro / equipset
-		-- metadata or UPDATE_MACROS can repopulate the button and block drag auto-write.
 		if type(text) ~= "string" or not text:match("%S") then
 			updates.macro_BlizzMacro = false
 			updates.macro_EquipmentSet = false
@@ -183,7 +180,6 @@ local function buttonEditPanel(specData, update)
 		updateAndRefreshIcon(updates)
 	end)
 	mainContainer:AddChild(macroEditFrame)
-
 	settingContainer:AddChild(mainContainer)
 
 	local buttonContainer = AceGUI:Create("SimpleGroup")
@@ -209,7 +205,6 @@ local function buttonEditPanel(specData, update)
 	buttonContainer:AddChild(resetIconButton)
 
 	settingContainer:AddChild(buttonContainer)
-
 	return settingContainer
 end
 
@@ -221,96 +216,123 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 	end
 
 	local multiSpec = Neuron.currentButton.bar:GetMultiSpec()
+	local activeSpec = Spec.active(true) or 1
 
-	-- Only build spec trees that matter. Previously specs[5] ("No Spec") was
-	-- always appended; with multi-spec off, Fill layout still created a second
-	-- TreeGroup whose scrollbar leaked through as a stray up-arrow below the tree.
-	-- On Ascension CoA, Spec.names() already lists Character Advancement specs
-	-- (up to 20) — do not append a fake retail "No Spec" slot.
-	local specList = {}
+	-- ONE TreeGroup:
+	--   multi-spec ON  -> Spec nodes as roots, form/state children
+	--   multi-spec OFF -> single home-state root
+	-- Multiple TreeGroups under Fill layout only showed Spec 1 and looked
+	-- like talent specs "vanished" when Spec.names() was empty.
+	local treeNodes = {}
+	local defaultSelect
+
 	if multiSpec then
-		local specs = Spec.names(multiSpec)
+		local specs = Spec.names(true)
+		if type(specs) ~= "table" or #specs < 1 then
+			specs = { (L["Specialization"] or "Spec") .. " 1" }
+		end
+
 		for specIndex, specName in ipairs(specs) do
-			specList[#specList + 1] = { specIndex, specName }
+			Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, "homestate")
+
+			local label = specName
+			if not label or label == "" then
+				label = (L["Specialization"] or "Spec") .. " " .. specIndex
+			end
+			if specIndex == activeSpec then
+				label = label .. "  [" .. (L["Active"] or "Active") .. "]"
+			end
+
+			local children = {
+				{ value = "homestate", text = getHomeStateLabel() },
+			}
+			for _, state in ipairs(getStateList()) do
+				children[#children + 1] = {
+					value = state,
+					text = Neuron.STATES[state] or state,
+				}
+			end
+
+			treeNodes[#treeNodes + 1] = {
+				value = tostring(specIndex),
+				text = label,
+				children = children,
+			}
 		end
+
 		if not (Spec.isAscension and Spec.isAscension()) then
-			specList[#specList + 1] = { 5, L["No Spec"] }
+			treeNodes[#treeNodes + 1] = {
+				value = "5",
+				text = L["No Spec"],
+				children = {
+					{ value = "homestate", text = getHomeStateLabel() },
+				},
+			}
 		end
+
+		defaultSelect = tostring(activeSpec) .. TREE_SEP .. "homestate"
 	else
-		specList[1] = { 1, "" }
-	end
-
-	for _, specEntry in ipairs(specList) do
-		local specIndex, specName = specEntry[1], specEntry[2]
-		local specData = select(1, Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, "homestate"))
-
-		local rootLabel = getHomeStateLabel()
-		if specName and specName ~= "" then
-			rootLabel = specName .. " (" .. rootLabel .. ")"
-		else
-			rootLabel = "(" .. rootLabel .. ")"
-		end
-
-		local buttonTree = {
+		Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, 1, "homestate")
+		local children = Array.map(
+			function(state)
+				return { value = state, text = Neuron.STATES[state] or state }
+			end,
+			getStateList()
+		)
+		treeNodes[1] = {
 			value = "homestate",
-			text = rootLabel,
-			children = Array.map(
-				function(state)
-					return {
-						value = state,
-						text = Neuron.STATES[state] or state,
-					}
-				end,
-				getStateList()
-			),
+			text = "(" .. getHomeStateLabel() .. ")",
+			children = children,
 		}
-
-		local specButtonTree = AceGUI:Create("TreeGroup")
-		specButtonTree:SetFullWidth(true)
-		specButtonTree:SetFullHeight(true)
-		specButtonTree:SetLayout("Fill")
-		if specButtonTree.SetTreeWidth then
-			specButtonTree:SetTreeWidth(220)
-		end
-		if specButtonTree.EnableButtonTooltips then
-			specButtonTree:EnableButtonTooltips(false)
-		end
-		specButtonTree:SetTree({buttonTree})
-		specButtonTree:SetCallback("OnGroupSelected", function(container, _, joinedState)
-			container:ReleaseChildren()
-
-			local splitState = {}
-			for part in string.gmatch(joinedState, "[^\001]+") do
-				splitState[#splitState + 1] = part
-			end
-			if #splitState == 0 then
-				splitState[1] = joinedState
-			end
-			local state = splitState[#splitState] or "homestate"
-
-			local _, stateData = Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, state)
-			local buttonEditor = buttonEditPanel(stateData, function(data)
-				for k,v in pairs(data) do
-					stateData[k] = v
-				end
-
-				if Spec.active(multiSpec) ~= specIndex then
-					-- don't update the button if the modified spec isn't active
-					return
-				end
-
-				-- for some reason we need to do a full bar load or the buttons don't
-				-- update. we can investigate further, but note that switching specs
-				-- probably needs the same fix
-				Neuron.currentButton.bar:Load()
-				--Neuron.currentButton:LoadDataFromDatabase(specIndex, state)
-				--Neuron.currentButton:UpdateAll()
-			end)
-			container:AddChild(buttonEditor)
-		end)
-
-		specButtonTree:SelectByValue("homestate")
-
-		topContainer:AddChild(specButtonTree)
+		defaultSelect = "homestate"
 	end
+
+	local specButtonTree = AceGUI:Create("TreeGroup")
+	specButtonTree:SetFullWidth(true)
+	specButtonTree:SetFullHeight(true)
+	specButtonTree:SetLayout("Fill")
+	if specButtonTree.SetTreeWidth then
+		specButtonTree:SetTreeWidth(240)
+	end
+	if specButtonTree.EnableButtonTooltips then
+		specButtonTree:EnableButtonTooltips(false)
+	end
+	specButtonTree:SetTree(treeNodes)
+
+	specButtonTree:SetCallback("OnGroupSelected", function(container, _, joinedState)
+		container:ReleaseChildren()
+
+		local specIndex, state = parseTreeSelection(joinedState, multiSpec)
+		local _, stateData = Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, state)
+
+		NeuronGUI.editingSpecIndex = specIndex
+		NeuronGUI.editingState = state
+		NeuronGUI.editingStateData = stateData
+
+		local buttonEditor = buttonEditPanel(stateData, function(data)
+			for k, v in pairs(data) do
+				stateData[k] = v
+			end
+			if Spec.active(multiSpec) ~= specIndex then
+				return
+			end
+			if not InCombatLockdown() then
+				Neuron.currentButton:LoadDataFromDatabase(specIndex, state)
+				if Neuron.currentButton.UpdateButtonSpec then
+					Neuron.currentButton:UpdateButtonSpec(specIndex)
+				else
+					Neuron.currentButton.bar:Load()
+				end
+			end
+		end)
+		container:AddChild(buttonEditor)
+	end)
+
+	specButtonTree:SelectByValue(defaultSelect)
+	if multiSpec and not NeuronGUI.editingStateData then
+		specButtonTree:SelectByValue(tostring(activeSpec))
+		specButtonTree:SelectByValue(defaultSelect)
+	end
+
+	topContainer:AddChild(specButtonTree)
 end
