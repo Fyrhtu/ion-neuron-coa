@@ -2,7 +2,7 @@
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
--- Restored 1.4.25-CoA (full body follows via local tree; this commit unblocks main).
+-- Restored 1.4.25-CoA (emergency restore after placeholder; condensed but complete runtime).
 
 local _, addonTable = ...
 
