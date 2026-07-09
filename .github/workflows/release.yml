@@ -1,7 +1,10 @@
 name: Package and release
 
 # Publish a GitHub release zip when a version tag is pushed (e.g. v1.4.25-CoA),
-# or create that tag from main via workflow_dispatch.
+# or create that tag from main and package in one job via workflow_dispatch.
+#
+# Note: tag pushes made with GITHUB_TOKEN do not re-trigger workflows, so
+# workflow_dispatch must package in the same job that creates the tag.
 on:
   push:
     tags:
@@ -14,11 +17,14 @@ on:
         default: 'v1.4.25-CoA'
 
 jobs:
-  create-tag:
+  # Manual: create tag (if needed) and package from main
+  dispatch-release:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Clone project
         uses: actions/checkout@v4
@@ -26,7 +32,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Create and push release tag
+      - name: Create release tag if missing
         env:
           TAG: ${{ github.event.inputs.tag }}
         run: |
@@ -34,15 +40,23 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists; not recreating."
+            echo "Tag ${TAG} already exists"
           else
             git tag -a "${TAG}" -m "Release ${TAG}"
             git push origin "refs/tags/${TAG}"
             echo "Pushed tag ${TAG}"
           fi
+          # Detach at tag so packager sees the release ref
+          git checkout "refs/tags/${TAG}"
 
+      - name: Package and release to GitHub
+        uses: BigWigsMods/packager@v2
+        with:
+          args: '-p github'
+
+  # Automatic: package when a real tag push is received (e.g. human git push)
   release:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
