@@ -68,6 +68,7 @@ local COMMAND_LIST = {
 	["/summonpet"] = true,
 	["/click"] = true,
 	["#showtooltip"] = true,
+	["#autowrite"] = true,
 }
 
 ---Constructor: Create a new Neuron Button object (this is the base object for all Neuron button types)
@@ -315,7 +316,11 @@ function ActionButton:OnAttributeChanged(name, value)
 			--breaks out of the loop due to flag set below
 			if Neuron.class == "DRUID" and self.ignoreNextOverrideStance == true and value == "homestate" then
 				self.ignoreNextOverrideStance = nil
-				self.bar:SetState("stealth") --have to add this in otherwise the button icons change but still retain the homestate ability actions
+				-- Force stealth secondary ON. Never call SetState("stealth") without
+				-- gui=true — that toggles the saved flag and unchecks Stealth.
+				if self.bar and not self.bar.data.stealth then
+					self.bar:SetState("stealth", true, true)
+				end
 				return
 			else
 				self.ignoreNextOverrideStance = nil
@@ -350,13 +355,11 @@ function ActionButton:OnAttributeChanged(name, value)
 				self:ClearButton()
 			end
 
-			--This will remove any old button state data from the saved variable's memory
-			for id,data in pairs(self.statedata) do
-				if (self.bar.data[id:match("%a+")] or id == "") and self.bar.data["custom"] then
-				elseif not self.bar.data[id:match("%a+")] then
-					self.statedata[id]= nil
-				end
-			end
+			-- NOTE: Do NOT prune self.statedata here based on bar flags.
+			-- The old cleanup wiped stealth1/homestate payloads whenever the
+			-- corresponding secondary flag was false or the key had no bar
+			-- option (e.g. "homestate"), so Stealth layouts disappeared as
+			-- soon as a form/stance switch fired.
 
 			self:UpdateAll()
 		end
@@ -876,20 +879,15 @@ function ActionButton:UpdateIcon()
 		return
 	end
 
-	local spec = Spec.active(self.bar:GetMultiSpec())
-	local state = self.bar.handler:GetAttribute("activestate") or "homestate"
-
-	-- if we have any issues with flyouts or other edge cases, then
-	-- then we can build our data from our ActionButton instead of using
-	-- the database values. but we need to keep GetAppearance stateless
-	-- so that we can use it in other contexts: like the settings dialog
+	-- Prefer live button state (self.data). Handler activestate often lags form
+	-- swaps on CoA, which froze icons while tooltips (self.data) looked correct.
 	---@type GenericSpecData
-	local data = (
-		self.DB
-		and CopyTable(self.DB[spec][state], true)
-		or {macro_Text = self:GetMacroText(), macro_Icon = self:GetMacroIcon()}
-	)
-	data.actionID = self.actionID -- this is for vehicle, possession, etc
+	local data = {
+		macro_Text = self:GetMacroText(),
+		macro_Icon = self:GetMacroIcon(),
+		macro_Name = (self.GetMacroName and self:GetMacroName()) or nil,
+		actionID = self.actionID,
+	}
 
 	self:ApplyAppearance(self:GetAppearance(data))
 
