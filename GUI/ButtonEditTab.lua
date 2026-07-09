@@ -28,33 +28,26 @@ local function refreshIconPreview(frame, data)
 	end
 end
 
----take a parent frame and fills it with a child scroll frame
----@param parent Frame @parent frame--we need this because we want to abstract out the parent group, and only return the scroll frame
----@param height? number @the default zero does nothing
----@param layout? "Flow"|"List"|nil @"Flow" is the default
----@return Frame @the scroll frame
-local function makeScrollFrame(parent, height, layout)
-		local scrollContainer = AceGUI:Create("SimpleGroup")
-		scrollContainer:SetFullWidth(true)
-	if height then
-		scrollContainer:SetHeight(height)
-	else
-		scrollContainer:SetFullHeight(true)
+local function visibilityMatchesBarState(barState, visibilityState)
+	local managed = Neuron.MANAGED_BAR_STATES[barState]
+	if not managed or not managed.states then
+		return false
 	end
-		scrollContainer:SetLayout("Fill")
 
-		parent:AddChild(scrollContainer)
+	if not managed.states:find(visibilityState, 1, true) then
+		return false
+	end
 
-		local scroll = AceGUI:Create("ScrollFrame")
-		scroll:SetLayout(layout or "Flow")
-		scrollContainer:AddChild(scroll)
+	-- Default form (stance0) is edited via the homestate root node.
+	if managed.homestate == visibilityState then
+		return false
+	end
 
-		return scroll
+	return true
 end
 
---our states come from the VISIBILITY_STATES but we only show the states that
---are enabled for the bar _and_ that are in the states field of the
---corresponding MANAGED_BAR_STATES entry
+-- States come from VISIBILITY_STATES for enabled bar modifiers, plus explicit
+-- form slots when Form/Stance is the bar home state.
 local function getStateList()
 	local barData = Neuron.currentButton.bar.data
 
@@ -68,8 +61,7 @@ local function getStateList()
 			function(visibilityState)
 				return Array.find(
 					function(barState)
-						local match = Neuron.MANAGED_BAR_STATES[barState].states:find(visibilityState)
-						return not not match and Neuron.MANAGED_BAR_STATES[barState].homestate ~= visibilityState
+						return visibilityMatchesBarState(barState, visibilityState)
 					end,
 					barStates
 				)
@@ -77,18 +69,49 @@ local function getStateList()
 		Array.map(function(state) return state[1] end,
 		Array.fromIterator(pairs(Neuron.VISIBILITY_STATES))))
 
-	--TODO: custom states? or nah?
-	--[[
-	if (bar and bar.data.customNames) then
-		local i = 0
-		for index,state in pairs(bar.data.customNames) do
-			stateList[state] = index
-			data[count] = state; count = count + 1
+	if barData.stance then
+		local seen = {}
+		for _, state in ipairs(visibilityStates) do
+			seen[state] = true
 		end
+
+		local stanceInfo = Neuron.MANAGED_BAR_STATES.stance
+		local rangeStop = stanceInfo and stanceInfo.rangeStop or 8
+		for slot = 1, rangeStop do
+			local stateKey = "stance" .. slot
+			if not seen[stateKey] and Neuron.STATES[stateKey] then
+				visibilityStates[#visibilityStates + 1] = stateKey
+				seen[stateKey] = true
+			end
+		end
+
+		table.sort(visibilityStates, function(a, b)
+			local aStance = a:match("^stance(%d+)$")
+			local bStance = b:match("^stance(%d+)$")
+			if aStance and bStance then
+				return tonumber(aStance) < tonumber(bStance)
+			end
+			if aStance then
+				return true
+			end
+			if bStance then
+				return false
+			end
+			return a < b
+		end)
 	end
-	]]
 
 	return visibilityStates
+end
+
+local function getHomeStateLabel()
+	if Neuron.currentButton.bar.data.stance then
+		local homestate = Neuron.MANAGED_BAR_STATES.stance and Neuron.MANAGED_BAR_STATES.stance.homestate
+		if homestate and Neuron.STATES[homestate] then
+			return Neuron.STATES[homestate]
+		end
+	end
+	return Neuron.STATES.homestate
 end
 
 ---@param specData GenericSpecData
@@ -197,21 +220,47 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 		return
 	end
 
-	topContainer = makeScrollFrame(topContainer)
-
 	local multiSpec = Neuron.currentButton.bar:GetMultiSpec()
 
-	local specs = Spec.names(multiSpec)
-	specs[5] =  L["No Spec"]
+	-- Only build spec trees that matter. Previously specs[5] ("No Spec") was
+	-- always appended; with multi-spec off, Fill layout still created a second
+	-- TreeGroup whose scrollbar leaked through as a stray up-arrow below the tree.
+	-- On Ascension CoA, Spec.names() already lists Character Advancement specs
+	-- (up to 20) — do not append a fake retail "No Spec" slot.
+	local specList = {}
+	if multiSpec then
+		local specs = Spec.names(multiSpec)
+		for specIndex, specName in ipairs(specs) do
+			specList[#specList + 1] = { specIndex, specName }
+		end
+		if not (Spec.isAscension and Spec.isAscension()) then
+			specList[#specList + 1] = { 5, L["No Spec"] }
+		end
+	else
+		specList[1] = { 1, "" }
+	end
 
-	for specIndex, specName in pairs(specs) do
+	for _, specEntry in ipairs(specList) do
+		local specIndex, specName = specEntry[1], specEntry[2]
 		local specData = select(1, Neuron:EnsureButtonSpecData(Neuron.currentButton.DB, specIndex, "homestate"))
+
+		local rootLabel = getHomeStateLabel()
+		if specName and specName ~= "" then
+			rootLabel = specName .. " (" .. rootLabel .. ")"
+		else
+			rootLabel = "(" .. rootLabel .. ")"
+		end
 
 		local buttonTree = {
 			value = "homestate",
-			text = specName,
+			text = rootLabel,
 			children = Array.map(
-				function(state) return {value=state, text=Neuron.STATES[state]} end,
+				function(state)
+					return {
+						value = state,
+						text = Neuron.STATES[state] or state,
+					}
+				end,
 				getStateList()
 			),
 		}
@@ -220,6 +269,9 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 		specButtonTree:SetFullWidth(true)
 		specButtonTree:SetFullHeight(true)
 		specButtonTree:SetLayout("Fill")
+		if specButtonTree.SetTreeWidth then
+			specButtonTree:SetTreeWidth(220)
+		end
 		if specButtonTree.EnableButtonTooltips then
 			specButtonTree:EnableButtonTooltips(false)
 		end
@@ -259,8 +311,6 @@ function NeuronGUI:ButtonsEditPanel(topContainer)
 
 		specButtonTree:SelectByValue("homestate")
 
-		-- make sure to do this last, or the size of the scroll box
-		-- might be smaller than it's contents
 		topContainer:AddChild(specButtonTree)
 	end
 end
