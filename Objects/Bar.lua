@@ -106,8 +106,12 @@ end
 
 function Bar:InitializeBar()
 	if self.class == "ActionBar" then
-		if Neuron.isWoWRetail or Neuron.isWoWWotLK then
+		if type(SpecializationUtil) == "table" then
+			self:RegisterEvent("ASCENSION_CA_SPECIALIZATION_ACTIVE_ID_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED")
+		end
+		if Neuron.isWoWRetail or Neuron.isWoWWotLK or Neuron.isAscensionCoA then
 			self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+			self:RegisterEvent("PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED")
 		end
 		self:RegisterEvent("ACTIONBAR_SHOWGRID", "ACTIONBAR_SHOWHIDEGRID", true)
 		self:RegisterEvent("ACTIONBAR_HIDEGRID", "ACTIONBAR_SHOWHIDEGRID")
@@ -119,12 +123,20 @@ end
 -----------------------------------
 
 function Bar:ACTIVE_TALENT_GROUP_CHANGED()
-	if self.handler:GetAttribute("assertstate") then
+	if not self:GetMultiSpec() then
+		return
+	end
+	if InCombatLockdown() then
+		return
+	end
+	if self.handler and self.handler:GetAttribute("assertstate") then
 		self.handler:SetAttribute("state-"..self.handler:GetAttribute("assertstate"), self.handler:GetAttribute("activestate") or "homestate")
 	end
 
 	for _,button in pairs(self.buttons) do
-		button:UpdateButtonSpec()
+		if button.UpdateButtonSpec then
+			button:UpdateButtonSpec()
+		end
 	end
 	self:Load()
 end
@@ -548,6 +560,50 @@ function Bar:InitLegacyStates(handler)
 	self.legacyStatesInitialized = true
 end
 
+--- Ascension / WotLK 3.3.5: RegisterStateDriver so stance/stealth/etc. fire
+--- the handler's existing _onstate-* scripts. InitLegacyStates alone only set
+--- defaults and never registered drivers — multi-state form bars and the
+--- Stealth secondary state did nothing until a /reload of form-conditional macros.
+function Bar:UpdateLegacyStateDrivers(handler)
+	if not handler or type(RegisterStateDriver) ~= "function" then
+		return
+	end
+	if InCombatLockdown() then
+		self.stateschanged = true
+		return
+	end
+
+	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
+		if not self[state] then
+			self[state] = {}
+		end
+
+		if self.data[state] then
+			local conditions
+			if self.data.remap and (state == "paged" or state == "stance") then
+				conditions = self:BuildStateMap(state)
+			elseif state == "custom" and self.data.custom then
+				conditions = self.data.custom
+			else
+				conditions = values.states
+			end
+
+			if type(conditions) == "string" and conditions ~= "" then
+				if values.homestate then
+					handler:SetAttribute("handler-homestate", values.homestate)
+				end
+				RegisterStateDriver(handler, state, conditions)
+				self[state].registered = true
+			end
+		elseif self[state].registered then
+			if type(UnregisterStateDriver) == "function" then
+				UnregisterStateDriver(handler, state)
+			end
+			self[state].registered = false
+		end
+	end
+end
+
 
 function Bar:AddVisibilityDriver(handler, state, conditions)
 	if Neuron.usesLegacyStateDrivers then
@@ -689,6 +745,7 @@ end
 function Bar:UpdateStates(handler)
 	if Neuron.usesLegacyStateDrivers then
 		self:InitLegacyStates(handler)
+		self:UpdateLegacyStateDrivers(handler)
 		return
 	end
 
@@ -1531,7 +1588,10 @@ function Bar:SetState(msg, gui, checked)
 			self.data.paged = false
 			self.data.pet = false
 
-
+			-- Classic rogues fold stealth into the stance home state, so the
+			-- separate secondary Stealth flag is cleared. CoA classes (e.g.
+			-- Venomancer) legitimately use Form as home state AND Stealth as a
+			-- secondary modifier — do not clear stealth for them.
 			if Neuron.class == "ROGUE" and self.data.stealth then
 				self.data.stealth = false
 			end
@@ -1541,6 +1601,11 @@ function Bar:SetState(msg, gui, checked)
 			else
 				self.data.remap = false
 			end
+		end
+
+		-- Enabling stealth must not clobber form/stance home state on CoA.
+		if state == "stealth" and self.data.stealth then
+			self.stateschanged = true
 		end
 
 		if state == "custom" then
