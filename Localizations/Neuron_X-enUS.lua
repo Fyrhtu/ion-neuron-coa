@@ -1,4 +1,4 @@
-﻿-- Neuron is a World of Warcraft® user interface addon.
+-- Neuron is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
@@ -354,6 +354,10 @@ L["Click Mode"] = true
 L["On Click"] = true
 L["On Release"] = true
 L["Multi Spec"] = true
+L["Multi Spec_Desc"] = "Store a separate button layout per Character Advancement specialization."
+L["Specialization"] = true
+L["Active"] = true
+L["Secondary States"] = true
 L["No Spec"] = true
 L["Spell Alerts"] = true
 L["Default Alert"] = true
