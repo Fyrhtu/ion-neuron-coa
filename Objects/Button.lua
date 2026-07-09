@@ -287,16 +287,27 @@ function Button:LoadDataFromDatabase(curSpec, curState)
 		end
 		self.data = self.DB.data
 	else
-		curSpec = curSpec or 1
+		curSpec = tonumber(curSpec) or 1
 		curState = curState or "homestate"
 
-		if type(self.DB[curSpec]) ~= "table" then
-			self.DB[curSpec] = { homestate = {} }
+		local statedata = rawget(self.DB, curSpec)
+		if type(statedata) ~= "table" then
+			statedata = { homestate = {} }
+			rawset(self.DB, curSpec, statedata)
 		end
-		self.statedata = self.DB[curSpec]
+		self.statedata = statedata
 
 		if type(self.statedata[curState]) ~= "table" then
-			self.statedata[curState] = {}
+			self.statedata[curState] = {
+				actionID = false,
+				macro_Text = "",
+				macro_Icon = false,
+				macro_Name = "",
+				macro_Note = "",
+				macro_UseNote = false,
+				macro_BlizzMacro = false,
+				macro_EquipmentSet = false,
+			}
 		end
 		self.data = self.statedata[curState]
 
