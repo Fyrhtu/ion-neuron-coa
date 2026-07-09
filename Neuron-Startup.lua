@@ -8,6 +8,7 @@ local Neuron = addonTable.Neuron
 
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 local Array = addonTable.utilities.Array
+local Spec = addonTable.utilities.Spec
 
 -- this function takes a partial bar config and fills out the missing fields
 -- from the database default skeleton to create a complete bar database entry
@@ -113,7 +114,14 @@ function Neuron:CreateButtonDatabaseEntry(barClass)
 	entry['**'] = nil
 
 	if barClass == "ActionBar" then
-		for specIndex = 1, 5 do
+		-- Ascension CoA: up to 20 specializations; retail/wotlk: 2-5.
+		local maxSpecs = 5
+		if Spec and Spec.maxSlots then
+			maxSpecs = Spec.maxSlots() or 5
+		elseif type(SpecializationUtil) == "table" then
+			maxSpecs = 20
+		end
+		for specIndex = 1, maxSpecs do
 			if type(entry[specIndex]) ~= "table" then
 				entry[specIndex] = { homestate = {} }
 			elseif type(entry[specIndex].homestate) ~= "table" then
