@@ -25,7 +25,7 @@ local DB
 local LibDeflate = LibStub:GetLibrary("LibDeflate")
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
-local LATEST_VERSION_NUM = "1.4.18-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
+local LATEST_VERSION_NUM = "1.4.25-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
 
 --prepare the Neuron table with some sub-tables that will be used down the road
 Neuron.bars = {} --this table will be our main handle for all of our bars.
@@ -134,6 +134,15 @@ function Neuron:OnEnable()
 	Neuron:RegisterEvent("UPDATE_SHAPESHIFT_FORMS")
 	Neuron:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 
+	-- Multi-spec (Ascension Character Advancement specializations)
+	if type(SpecializationUtil) == "table" and type(SpecializationUtil.GetActiveSpecialization) == "function" then
+		Neuron:RegisterEvent("ASCENSION_CA_SPECIALIZATION_ACTIVE_ID_CHANGED", "OnTalentGroupChanged")
+	end
+	if Neuron.isWoWRetail or Neuron.isWoWWotLK or Neuron.isAscensionCoA then
+		Neuron:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", "OnTalentGroupChanged")
+		Neuron:RegisterEvent("PLAYER_TALENT_UPDATE", "OnTalentGroupChanged")
+	end
+
 	Neuron:UpdateStanceStrings()
 
 	--this allows for the "Esc" key to disable the Edit Mode instead of bringing up the game menu, but only if an edit mode is activated.
@@ -188,6 +197,46 @@ function Neuron:PLAYER_REGEN_ENABLED()
 		Neuron.pendingStanceRefresh = nil
 		Neuron:OnStanceMapUpdated()
 	end
+	Neuron:RefreshActionButtonVisuals()
+end
+
+function Neuron:OnTalentGroupChanged()
+	for _, bar in pairs(Neuron.bars) do
+		if bar.class == "ActionBar" and bar.GetMultiSpec and bar:GetMultiSpec() and not InCombatLockdown() then
+			for _, button in pairs(bar.buttons) do
+				if button.UpdateButtonSpec then
+					button:UpdateButtonSpec()
+				end
+			end
+			bar:Load()
+		end
+	end
+	Neuron:UpdateSpellCache()
+	Neuron:UpdateStanceStrings()
+	if Neuron.buttonEditMode and Neuron.NeuronGUI and Neuron.NeuronGUI.RefreshEditor then
+		Neuron.NeuronGUI:RefreshEditor("button")
+	end
+end
+
+function Neuron:RefreshActionButtonVisuals()
+	for _, bar in pairs(Neuron.bars) do
+		if bar.class == "ActionBar" and bar.buttons then
+			for _, button in pairs(bar.buttons) do
+				local state = button.GetAttribute and button:GetAttribute("activestate")
+				if (not state or state == "") and bar.handler then
+					state = bar.handler:GetAttribute("activestate")
+				end
+				state = state or "homestate"
+				state = tostring(state):match("([^:]+)$") or state
+				if button.statedata and type(button.statedata[state]) == "table" then
+					button.data = button.statedata[state]
+				end
+				if button.UpdateAll then
+					button:UpdateAll()
+				end
+			end
+		end
+	end
 end
 
 
@@ -233,8 +282,7 @@ function Neuron:PLAYER_ENTERING_WORLD()
 end
 
 function Neuron:ACTIVE_TALENT_GROUP_CHANGED()
-	Neuron:UpdateSpellCache()
-	Neuron:UpdateStanceStrings()
+	Neuron:OnTalentGroupChanged()
 end
 
 function Neuron:LEARNED_SPELL_IN_TAB()
@@ -261,7 +309,8 @@ function Neuron:UPDATE_SHAPESHIFT_FORMS()
 end
 
 function Neuron:UPDATE_SHAPESHIFT_FORM()
-	Neuron:UPDATE_SHAPESHIFT_FORMS()
+	-- Form swap only — refresh icons; do not rebuild stance map drivers.
+	Neuron:RefreshActionButtonVisuals()
 end
 
 -------------------------------------------------------------------------
@@ -302,422 +351,5 @@ function Neuron:LoginMessage()
 		print(" ")
 		Neuron:Print(WrapTextInColorCode("IMPORTANT: Shadowlands content now requires multiple Zone Ability Buttons. Please add at least 3 buttons to your Zone Ability Bar to support this new functionality.", "FF00FFEC"))
 		print(" ")
-	end
-end
-
-
-
---- Creates a table containing provided data
--- @param index, bookType, spellName, altName, spellID, altSpellID, spellType, icon
--- @return curSpell:  Table containing provided data
-function Neuron:SetSpellInfo(index, bookType, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
-	local curSpell = {}
-
-	curSpell.index = index
-	curSpell.booktype = bookType
-
-	curSpell.spellType = spellType
-	curSpell.spellName = spellName
-	curSpell.spellID = spellID
-	curSpell.icon = icon
-
-	curSpell.altName = altName
-	curSpell.altSpellID = altSpellID
-	curSpell.altIcon = altIcon
-
-	return curSpell
-end
-
---- "()" indexes added because the Blizzard macro parser uses that to determine the difference of a spell versus a usable item if the two happen to have the same name.
---- I forgot this fact and removed using "()" and it made some macros not represent the right spell /sigh. This note is here so I do not forget again :P - Maul
-
-
---- Scans Character Spell Book and creates a table of all known spells.  This table is used to refrence macro spell info to generate tooltips and cooldowns.
----	If a spell is not displaying its tooltip or cooldown, then the spell in the macro probably is not in the database
-function Neuron:UpdateSpellCache()
-	local sIndexMax = 0
-	local numTabs = GetNumSpellTabs()
-
-	for i=1,numTabs do
-		local _, _, _, numSlots = GetSpellTabInfo(i)
-
-		sIndexMax = sIndexMax + numSlots
-	end
-
-	for i = 1,sIndexMax do
-		local spellName, _ = GetSpellBookItemName(i, BOOKTYPE_SPELL) --this returns the baseSpell name, even if it is augmented by talents. I.e. Roll and Chi Torpedo
-		local spellType, spellID = GetSpellBookItemInfo(i, BOOKTYPE_SPELL)
-		local isPassive
-		if spellName then
-			isPassive = IsPassiveSpell(i, BOOKTYPE_SPELL)
-		end
-		local icon = GetSpellTexture(spellID)
-
-		local altName
-		local altSpellID
-		local altIcon
-
-		if (spellName and spellType ~= "FUTURESPELL") and not isPassive then
-
-			-- Retail GetSpellInfo(name) can expose an alternate rank/ID; on 3.3.5 the
-			-- seventh return is cast time (often 0), not a spell ID.
-			if Neuron.isWoWLegacy then
-				altName = nil
-				altSpellID = nil
-				altIcon = nil
-			else
-				altName, _, altIcon, _, _, _, altSpellID = GetSpellInfo(spellName)
-
-				if spellID == altSpellID then
-					altSpellID = nil
-					altName = nil
-					altIcon = nil
-				end
-			end
-
-			local spellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, spellName, spellID, icon, altName, altSpellID, altIcon)
-
-			Neuron.spellCache[(spellName):lower()] = spellData
-			Neuron.spellCache[(spellName):lower().."()"] = spellData
-
-
-			--reverse main and alt so we can put both in the table accurately
-			local altSpellData = Neuron:SetSpellInfo(i, BOOKTYPE_SPELL, spellType, altName, altSpellID, altIcon, spellName, spellID, icon)
-
-			if altName and altName ~= spellName then
-				Neuron.spellCache[(altName):lower()] = altSpellData
-				Neuron.spellCache[(altName):lower().."()"] = altSpellData
-			end
-
-		end
-	end
-
-	if Neuron.isWoWRetail then
-		for i = 1, select("#", GetProfessions()) do
-			local index = select(i, GetProfessions())
-
-			if index then
-				local _, _, _, _, numSpells, spelloffset = GetProfessionInfo(index)
-
-				for j=1,numSpells do
-
-					local offsetIndex = j + spelloffset
-					local spellName, _ = GetSpellBookItemName(offsetIndex, BOOKTYPE_PROFESSION)
-					local spellType, spellID = GetSpellBookItemInfo(offsetIndex, BOOKTYPE_PROFESSION)
-					local icon
-
-					if spellName and spellType ~= "FUTURESPELL" then
-						icon = GetSpellTexture(spellID)
-						local spellData = Neuron:SetSpellInfo(offsetIndex, BOOKTYPE_PROFESSION, spellType, spellName, spellID, icon,nil,  nil, nil)
-
-						Neuron.spellCache[(spellName):lower()] = spellData
-						Neuron.spellCache[(spellName):lower().."()"] = spellData
-
-					end
-				end
-			end
-		end
-	end
-end
-
-function Neuron:ToggleMainMenu()
-	---need to run the command twice for some reason. The first one only seems to open the Interface panel
-	InterfaceOptionsFrame_OpenToCategory("Neuron");
-	InterfaceOptionsFrame_OpenToCategory("Neuron");
-end
-
-function Neuron:SelectFirstBar()
-	if Neuron.currentBar then
-		return Neuron.currentBar
-	end
-	for _, bar in ipairs(Neuron.bars) do
-		Neuron.Bar.ChangeSelectedBar(bar)
-		return bar
-	end
-	return nil
-end
-
-function Neuron:EnsureBarsExist()
-	if #Neuron.bars > 0 then
-		return
-	end
-
-	local empty = true
-	for _, reg in pairs(Neuron.registeredBarData) do
-		for _, entry in pairs(reg.barDB) do
-			if entry then
-				empty = false
-				break
-			end
-		end
-		if not empty then
-			break
-		end
-	end
-
-	if empty then
-		Neuron:InitializeEmptyDatabase(DB)
-	end
-
-	Neuron:CreateBarsAndButtons(DB)
-	for _, bar in pairs(Neuron.bars) do
-		bar:Load()
-	end
-end
-
-function Neuron:ToggleBarEditMode(show)
-	if show then
-		Neuron:EnsureBarsExist()
-		Neuron.barEditMode = true
-		Neuron:ToggleButtonEditMode(false)
-		Neuron:ToggleBindingMode(false)
-
-		for _, bar in pairs(Neuron.bars) do
-			bar:PrepareForEditMode(false)
-		end
-
-		Neuron:SelectFirstBar()
-		if Neuron.currentBar then
-			Neuron.currentBar:PrepareForEditMode(true)
-		end
-	else
-		Neuron.barEditMode = false
-		for _, bar in pairs(Neuron.bars) do
-			local overlay = bar.editFrame
-			bar.editFrame = nil
-			if overlay then
-				GetBarEditor().free(overlay)
-			end
-
-			bar:LeaveEditMode()
-		end
-	end
-end
-
-function Neuron:ToggleButtonEditMode(show)
-	local isActionBar = function(bar)
-		return bar and bar.class == "ActionBar"
-	end
-
-	local isStatusBar = function(bar)
-		return
-			bar and (
-				bar.class == "XPBar" or
-				bar.class == "RepBar" or
-				bar.class == "CastBar" or
-				bar.class == "MirrorBar"
-			)
-	end
-
-	local bars = Array.concatenate(
-		Array.filter(isActionBar, Neuron.bars),
-		Array.filter(isStatusBar, Neuron.bars)
-	)
-
-	if show then
-		Neuron.buttonEditMode = true
-
-		Neuron:ToggleBarEditMode(false)
-		Neuron:ToggleBindingMode(false)
-
-		local currentButton =
-			Neuron.currentButton or
-			(
-				(isActionBar(Neuron.currentBar) or isStatusBar(Neuron.currentBar))
-				and unpack(Neuron.currentBar.buttons)
-			) or
-			Array.foldl(
-				function(button, bar) return button or unpack(bar.buttons) end,
-				nil,
-				bars
-			)
-
-		if not currentButton then
-			Neuron.buttonEditMode = false
-			return
-		end
-
-		for _, bar in pairs(bars) do
-			for _, button in pairs(bar.buttons) do
-				button.editFrame = button.editFrame or ButtonEditor.allocate(
-					button,
-					isActionBar(bar) and "corners" or "sides",
-					function(btn)
-						Neuron.Button.ChangeSelectedButton(btn)
-						if addonTable.NeuronEditor then
-							Neuron.NeuronGUI:RefreshEditor()
-						end
-					end
-				)
-			end
-
-			bar:UpdateObjectVisibility(true)
-			bar:UpdateBarStatus(true)
-			bar:UpdateObjectStatus()
-			bar:UpdateObjectUsability()
-		end
-
-		-- change the button, but also manually activate it
-		-- just in case it was already the current button and
-		-- so if the change is a noop, we still show the recticle
-		Neuron.Button.ChangeSelectedButton(currentButton)
-		ButtonEditor.activate(currentButton.editFrame)
-	else
-		Neuron.buttonEditMode = false
-
-		for _, bar in pairs(bars) do
-			for _, button in pairs(bar.buttons) do
-				if button.editFrame then
-					ButtonEditor.free(button.editFrame)
-					button.editFrame = nil
-				end
-			end
-
-			bar:UpdateObjectVisibility()
-			bar:UpdateBarStatus()
-			bar:UpdateObjectStatus()
-			bar:UpdateObjectUsability()
-		end
-	end
-end
-
---- Processes the change to a key bind
---- @param targetButton Button
---- @param key string @The key to be used
-local function processKeyBinding(targetButton, key)
-	--if the button is locked, warn the user as to the locked status
-	if targetButton.keys and targetButton.keys.hotKeyLock then
-		UIErrorsFrame:AddMessage(L["Bindings_Locked_Notice"], 1.0, 1.0, 1.0, 1.0, UIERRORS_HOLD_TIME)
-		return
-	end
-
-	--if the key being pressed is escape, clear the bindings on the button
-	if key == "ESCAPE" then
-		ClearOverrideBindings(targetButton)
-		targetButton.keys.hotKeys = ":"
-		targetButton:ApplyBindings()
-
-		--if the key is anything else, keybind the button to this key
-	elseif key then --checks to see if another keybind already has that key, and if so clears it from the other button
-		--check to see if any other button has this key bound to it, ignoring locked buttons, and if so remove the key from the other button
-		for _, bar in pairs(Neuron.bars) do
-			for _, button in pairs(bar.buttons) do
-				if button.keys then
-					if targetButton ~= button and not button.keys.hotKeyLock then
-						button.keys.hotKeys:gsub("[^:]+", function(binding)
-							if key == binding then
-								local newkey = binding:gsub("%-", "%%-")
-								button.keys.hotKeys = button.keys.hotKeys:gsub(newkey..":", "")
-								button:ApplyBindings()
-							end
-						end)
-					end
-				end
-			end
-		end
-
-		--search the current hotKeys to see if our new key is missing, and if so add it
-		local found
-		targetButton.keys.hotKeys:gsub("[^:]+", function(binding)
-			if binding == key then
-				found = true
-			end
-		end)
-
-		if not found then
-			targetButton.keys.hotKeys = targetButton.keys.hotKeys..key..":"
-		end
-
-		targetButton:ApplyBindings()
-	end
-end
-
-function Neuron:ToggleBindingMode(show)
-	local isBindable = function(bar)
-		return bar and (
-			bar.class == "ActionBar" or
-			bar.class == "ExtraBar" or
-			bar.class == "ZoneAbilityBar" or
-			bar.class == "PetBar"
-		)
-	end
-
-	local bars = Array.filter(isBindable, Neuron.bars)
-
-	if show then
-		Neuron.bindingMode = true
-		Neuron:ToggleButtonEditMode(false)
-		Neuron:ToggleBarEditMode(false)
-
-		for _, bar in pairs(bars) do
-			for _, button in pairs(bar.buttons) do
-				button.keybindFrame = button.keybindFrame or ButtonBinder.allocate(button, processKeyBinding)
-			end
-
-			bar:UpdateObjectVisibility(true)
-			bar:UpdateBarStatus(true)
-			bar:UpdateObjectStatus()
-			bar:UpdateObjectUsability()
-		end
-
-	else
-		Neuron.bindingMode = false
-		for _, bar in pairs(bars) do
-			for _, button in pairs(bar.buttons) do
-				if button.keybindFrame then
-					ButtonBinder.free(button.keybindFrame)
-					button.keybindFrame = nil
-				end
-			end
-			bar:UpdateObjectVisibility()
-			bar:UpdateBarStatus()
-			bar:UpdateObjectStatus()
-			bar:UpdateObjectUsability()
-		end
-	end
-end
-
-function Neuron:GetSerializedAndCompressedProfile()
-	local uncompressed = Neuron:Serialize(Neuron.db.profile) --serialize the database into a string value
-	local compressed = LibDeflate:CompressZlib(uncompressed) --compress the data
-	local encoded = LibDeflate:EncodeForPrint(compressed) --encode the data for print for copy+paste
-	return encoded
-end
-
-function Neuron:SetSerializedAndCompressedProfile(input)
-	--check if the input is empty
-	if input == "" then
-		Neuron:Print(L["No data to import."].." "..L["Aborting."])
-		return
-	end
-
-	--decode and check if decoding worked properly
-	local decoded = LibDeflate:DecodeForPrint(input)
-	if decoded == nil then
-		Neuron:Print(L["Decoding failed."].." "..L["Aborting."])
-		return
-	end
-
-	--uncompress and check if uncompresion worked properly
-	local uncompressed = LibDeflate:DecompressZlib(decoded)
-	if uncompressed == nil then
-		Neuron:Print(L["Decompression failed."].." "..L["Aborting."])
-		return
-	end
-
-	--deserialize the data and return it back into a table format
-	local result, newProfile = Neuron:Deserialize(uncompressed)
-
-	if result == true and newProfile then --if we successfully deserialize, load the new table and reload
-		for k,v in pairs(newProfile) do
-			if type(v) == "table" then
-				Neuron.db.profile[k] = CopyTable(v)
-			else
-				Neuron.db.profile[k] = v
-			end
-		end
-		ReloadUI()
-	else
-		Neuron:Print(L["Data import Failed."].." "..L["Aborting."])
 	end
 end
