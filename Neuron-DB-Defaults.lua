@@ -34,133 +34,6 @@ local genericSpecData = {
     macro_BlizzMacro = false,
 	macro_EquipmentSet = false,
 }
---- Button fields
--- indexes refer to a table of pairs which include a function to
--- generate the button data
---@field cIndex center text index
---@field lIndex left text index
---@field rIndex right text index
---@field mIndex mouse over text index. hides other text
---@field tIndex tooltip index
-
-local genericXPBtnData= {
-	curXPType = "player_xp",
-
-	width = 450,
-	height = 18,
-	texture = 7,
-	border = 1,
-
-	orientation = 1,
-
-	cIndex = 2,
-	cColor = {1,1,1},
-
-	lIndex = 6,
-	lColor = {1,1,1},
-
-	rIndex = 4,
-	rColor = {1,1,1},
-
-	mIndex = 3,
-	mColor = {1,1,1},
-
-	tIndex = 1,
-	tColor = {1,1,1},
-
-	borderColor = {1,1,1},
-
-}
-
-local genericRepBtnData= {
-	repID = 2,
-	autoWatch = 2,
-
-	width = 450,
-	height = 18,
-	texture = 7,
-	border = 1,
-
-	orientation = 1,
-
-	cIndex = 3,
-	cColor = {1,1,1},
-
-	lIndex = 2,
-	lColor = {1,1,1},
-
-	rIndex = 4,
-	rColor = {1,1,1},
-
-	mIndex = 6,
-	mColor = {1,1,1},
-
-	tIndex = 1,
-	tColor = {1,1,1},
-
-	borderColor = {1,1,1},
-}
-
-local genericCastBtnData= {
-	width = 250,
-	height = 18,
-	texture = 7,
-	border = 1,
-
-	orientation = 1,
-
-	cIndex = 1,
-	cColor = {1,1,1},
-
-	lIndex = 2,
-	lColor = {1,1,1},
-
-	rIndex = 3,
-	rColor = {1,1,1},
-
-	mIndex = 1,
-	mColor = {1,1,1},
-
-	tIndex = 1,
-	tColor = {1,1,1},
-
-	borderColor = {1,1,1},
-
-	castColor = {1,0.7,0},
-	channelColor = {0,1,0},
-	successColor = {0,1,0},
-	failColor = {1,0,0},
-
-	unit = "player",
-	showIcon = true,
-}
-
-local genericMirrorBtnData= {
-	width = 250,
-	height = 18,
-	texture = 7,
-	border = 1,
-
-	orientation = 1,
-
-	cIndex = 1,
-	cColor = {1,1,1},
-
-	lIndex = 2,
-	lColor = {1,1,1},
-
-	rIndex = 3,
-	rColor = {1,1,1},
-
-	mIndex = 1,
-	mColor = {1,1,1},
-
-	tIndex = 1,
-	tColor = {1,1,1},
-
-	borderColor = {1,1,1},
-}
-
 
 local genericKeyData = {
 	hotKeyLock = false,
@@ -280,23 +153,13 @@ local genericBarData = {
 ----------------------MAIN TABLE----------------------------------------
 ------------------------------------------------------------------------
 
+-- CoA lite: only ActionBar + PetBar. Cast/Mirror/XP/Rep and Bag/Menu/Exit/Extra/Zone removed.
 addonTable.databaseDefaults = {
 	profile = {
 		blizzBars = {
 			-- ActionBar is special: showing blizz action bars doesn't hide neuron action bars
 			ActionBar = false,
-
-			--BagBar = false,
-			CastBar = false,
-			--MenuBar = false,
-			MirrorBar = false,
 			PetBar = false,
-			RepBar = false,
-			XPBar = false,
-
-			ExtraBar = false,
-			ExitBar = false,
-			ZoneAbilityBar = false,
 		},
 
 		mouseOverMod= "NONE",
@@ -312,43 +175,7 @@ addonTable.databaseDefaults = {
 			['*'] = CopyTable(genericBarData)
 		},
 
-		ExtraBar = {
-			['*'] = CopyTable(genericBarData),
-		},
-
-		ExitBar ={
-			['*'] = CopyTable(genericBarData)
-		},
-
-		BagBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		ZoneAbilityBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		MenuBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
 		PetBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		XPBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		RepBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		CastBar = {
-			['*'] = CopyTable(genericBarData)
-		},
-
-		MirrorBar = {
 			['*'] = CopyTable(genericBarData)
 		},
 	}
@@ -367,33 +194,5 @@ addonTable.databaseDefaults.profile.ActionBar['*'].buttons = {
 		[4] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}},
 		--any time a player is without spec, it is not treated as spec 5
 		[5] = {['**'] = CopyTable(genericSpecData), ['homestate'] = {}}, --we need this or we will error out on new character creation
-	}
-}
-
-addonTable.databaseDefaults.profile.RepBar['*'].buttons ={
-	['*'] = {
-		['config'] = CopyTable(genericRepBtnData),
-		['keys'] = CopyTable(genericKeyData),
-	}
-}
-
-addonTable.databaseDefaults.profile.XPBar['*'].buttons ={
-	['*'] = {
-		['config'] = CopyTable(genericXPBtnData),
-		['keys'] = CopyTable(genericKeyData),
-	}
-}
-
-addonTable.databaseDefaults.profile.CastBar['*'].buttons ={
-	['*'] = {
-		['config'] = CopyTable(genericCastBtnData),
-		['keys'] = CopyTable(genericKeyData),
-	}
-}
-
-addonTable.databaseDefaults.profile.MirrorBar['*'].buttons ={
-	['*'] = {
-		['config'] = CopyTable(genericMirrorBtnData),
-		['keys'] = CopyTable(genericKeyData),
 	}
 }

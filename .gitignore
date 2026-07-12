@@ -2,5 +2,6 @@
 .idea
 .libcache
 .luarc.json
-Libs
 dist
+.push-batches/
+.push-text/

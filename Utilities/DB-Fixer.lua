@@ -6,7 +6,7 @@
 local _, addonTable = ...
 addonTable.utilities = addonTable.utilities or {}
 
-local LATEST_DB_VERSION = 1.4
+local LATEST_DB_VERSION = 1.5
 
 ------------------------------------------------------------
 --------------------Data Fixing Functions-------------------
@@ -184,12 +184,48 @@ local function migrate1_3To1_4(profile)
 	return newProfile
 end
 
+--- CoA lite: drop Cast/Mirror/XP/Rep and unused bar class data from profiles.
+local function migrate1_4To1_5(profile)
+	local newProfile = CopyTable(profile)
+
+	local removedBarClasses = {
+		"CastBar", "MirrorBar", "XPBar", "RepBar",
+		"BagBar", "MenuBar", "ExtraBar", "ExitBar", "ZoneAbilityBar",
+		"StatusBar", -- legacy name from older migrations
+	}
+	for _, class in ipairs(removedBarClasses) do
+		newProfile[class] = nil
+	end
+
+	if type(newProfile.blizzBars) == "table" then
+		local keep = { ActionBar = true, PetBar = true }
+		for key in pairs(newProfile.blizzBars) do
+			if not keep[key] then
+				newProfile.blizzBars[key] = nil
+			end
+		end
+		if newProfile.blizzBars.ActionBar == nil then
+			newProfile.blizzBars.ActionBar = false
+		end
+		if newProfile.blizzBars.PetBar == nil then
+			newProfile.blizzBars.PetBar = false
+		end
+	else
+		newProfile.blizzBars = { ActionBar = false, PetBar = false }
+	end
+
+	newProfile.DBVersion = 1.5
+	return newProfile
+end
+
 local function profileMigrate(profileDatabase)
 	if profileDatabase.DBVersion < 1.3 then
 		-- we need to copy the table for the og fixer, since it modifies in place
 		return profileMigrate(ogFixer(CopyTable(profileDatabase)))
 	elseif profileDatabase.DBVersion == 1.3 then
 		return profileMigrate(migrate1_3To1_4(profileDatabase))
+	elseif profileDatabase.DBVersion == 1.4 then
+		return profileMigrate(migrate1_4To1_5(profileDatabase))
 	else
 		return profileDatabase
 	end

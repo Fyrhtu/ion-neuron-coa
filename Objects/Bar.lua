@@ -1414,12 +1414,12 @@ function Bar:OnClick(click, down)
 	if IsShiftKeyDown() and not down then
 		GetBarEditor().microadjust(self.editFrame)
 	elseif click == "RightButton" and not down then
-		if not addonTable.NeuronEditor then
+		if Neuron:EnsureGUI() and not addonTable.NeuronEditor then
 			Neuron.NeuronGUI:CreateEditor()
 		end
 	end
 
-	if addonTable.NeuronEditor then
+	if addonTable.NeuronEditor and Neuron.NeuronGUI then
 		Neuron.NeuronGUI:RefreshEditor()
 	end
 end

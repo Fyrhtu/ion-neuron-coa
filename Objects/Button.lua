@@ -96,15 +96,30 @@ function Button.ChangeSelectedButton(newButton)
 	end
 end
 
+---AceTimer:TimeLeft can return nil when the handle is missing/expired (CoA/older AceTimer).
+---Treat nil as 0 so comparisons and arithmetic never error.
+function Button:TimerTimeLeft(handle)
+	if not handle then
+		return 0
+	end
+	local left = self:TimeLeft(handle)
+	if type(left) ~= "number" then
+		return 0
+	end
+	return left
+end
+
 function Button:CancelCooldownTimer(stopAnimation)
 	--cleanup so on state changes the cooldowns don't persist
-	if self:TimeLeft(self.Cooldown.cooldownTimer) ~= 0 then
+	if self:TimerTimeLeft(self.Cooldown.cooldownTimer) ~= 0 then
 		self:CancelTimer(self.Cooldown.cooldownTimer)
 	end
+	self.Cooldown.cooldownTimer = nil
 
-	if self:TimeLeft(self.Cooldown.cooldownUpdateTimer) ~= 0 then
+	if self:TimerTimeLeft(self.Cooldown.cooldownUpdateTimer) ~= 0 then
 		self:CancelTimer(self.Cooldown.cooldownUpdateTimer)
 	end
+	self.Cooldown.cooldownUpdateTimer = nil
 
 	self.Countdown:SetText("")
 
@@ -126,7 +141,7 @@ function Button:SetCooldownTimer(start, duration, enable, modrate, showCountdown
 		return
 	end
 
-	if start and start > 0 and duration > 0 and enable > 0 then
+	if start and start > 0 and duration and duration > 0 and enable and enable > 0 then
 
 		if duration > 2 then --sets non GCD cooldowns
 			if charges and charges > 0 and maxCharges > 1 then
@@ -154,30 +169,35 @@ function Button:SetCooldownTimer(start, duration, enable, modrate, showCountdown
 				self.Cooldown.charges = charges or 0 --used to know if we should set alpha on the button (if cdAlpha is enabled) immediately, or if we need to wait for charges to run out
 
 				--clear old timer before starting a new one
-				if self:TimeLeft(self.Cooldown.cooldownTimer) ~= 0 then
+				if self:TimerTimeLeft(self.Cooldown.cooldownTimer) ~= 0 then
 					self:CancelTimer(self.Cooldown.cooldownTimer)
 				end
 
 				--Get the remaining time left so when we re-call the timer when switching back to a state it has the correct time left instead of the full time
 				local timeleft = duration-(GetTime()-start)
 
-				--safety check in case some timeleft value comes back ridiculously long. This happened once after a weird game glitch, it came back as like 42000000. We should cap it at 1 day max (even that's overkill)
-				if timeleft > 86400 then
-					timeleft = 86400
+				--safety: negative remaining (already expired) or absurd values from API glitches
+				if timeleft < 0 then
+					timeleft = 0
+				elseif timeleft > 86400 then
+					timeleft = 86400 --cap at 1 day
 				end
 
 				--set timer that is both our cooldown counter, but also the cancels the repeating updating timer at the end
-				self.Cooldown.cooldownTimer = self:ScheduleTimer(function() self:CancelTimer(self.Cooldown.cooldownUpdateTimer) end, timeleft + 1) --add 1 to the length of the timer to keep it going for 1 second once the spell cd is over (to fully finish the animations/alpha transition)
+				self.Cooldown.cooldownTimer = self:ScheduleTimer(function()
+					self:CancelTimer(self.Cooldown.cooldownUpdateTimer)
+					self.Cooldown.cooldownUpdateTimer = nil
+				end, timeleft + 1) --add 1 to keep going 1s after spell cd ends (finish animations/alpha)
 
 				--clear old timer before starting a new one
-				if self:TimeLeft(self.Cooldown.cooldownUpdateTimer) ~= 0 then
+				if self:TimerTimeLeft(self.Cooldown.cooldownUpdateTimer) ~= 0 then
 					self:CancelTimer(self.Cooldown.cooldownUpdateTimer)
 				end
 
 				--schedule a repeating timer that is physically keeping track of the countdown and switching the alpha and count text
 				self.Cooldown.cooldownUpdateTimer = self:ScheduleRepeatingTimer("CooldownCounterUpdate", 0.20)
-				self.Cooldown.normalcolor = color1
-				self.Cooldown.expirecolor = color2
+				self.Cooldown.normalcolor = color1 or { 1, 0.82, 0 }
+				self.Cooldown.expirecolor = color2 or { 1, 0.1, 0.1 }
 			else
 				self.Cooldown.showCountdownTimer = false
 				self.Cooldown.showCountdownAlpha = false
@@ -196,10 +216,11 @@ end
 function Button:CooldownCounterUpdate()
 	local coolDown, formatted, size
 
-	local normalcolor = self.Cooldown.normalcolor
+	local normalcolor = self.Cooldown.normalcolor or { 1, 0.82, 0 }
 	local expirecolor = self.Cooldown.expirecolor
 
-	coolDown = self:TimeLeft(self.Cooldown.cooldownTimer) - 1 --subtract 1 from the timer because we added 1 in SetCooldownTimer to keep the timer runing for 1 extra second after the spell
+	-- TimeLeft may be nil (cancelled/expired handle); subtract 1 for the extra second added in SetCooldownTimer
+	coolDown = self:TimerTimeLeft(self.Cooldown.cooldownTimer) - 1
 
 	if self.Cooldown.showCountdownTimer then --check if flag is set, otherwise skip
 
@@ -248,24 +269,21 @@ function Button:CooldownCounterUpdate()
 
 			end
 
-			if not self.Cooldown.cdsize or self.Cooldown.cdsize ~= size then
+			if size and (not self.Cooldown.cdsize or self.Cooldown.cdsize ~= size) then
 				self.Countdown:SetFont(STANDARD_TEXT_FONT, size, "OUTLINE")
 				self.Cooldown.cdsize = size
 			end
 
-			self.Countdown:SetText(formatted)
+			if formatted then
+				self.Countdown:SetText(formatted)
+			end
 
 		end
 	end
 
 	if self.Cooldown.showCountdownAlpha and self.Cooldown.charges == 0 then --check if flag is set and if charges are nil or zero, otherwise skip
-		if self.Cooldown.showCountdownAlpha and self.Cooldown.charges == 0 then --check if flag is set and if charges are nil or zero, otherwise skip
-
-			if coolDown > 0 then
-				self:SetAlpha(0.2)
-			else
-				self:SetAlpha(1)
-			end
+		if coolDown > 0 then
+			self:SetAlpha(0.2)
 		else
 			self:SetAlpha(1)
 		end

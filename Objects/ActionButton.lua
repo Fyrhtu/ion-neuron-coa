@@ -92,9 +92,7 @@ function ActionButton:InitializeButton()
 
 	SecureHandler_OnLoad(self)
 
-	if self.class ~= "flyout" then
-		self:SetupEvents()
-	end
+	self:SetupEvents()
 
 	self:SetAttribute("type", "macro")
 	self:SetAttribute("*macrotext*", self.SanitizedMacro(self:GetMacroText()))
@@ -213,7 +211,6 @@ function ActionButton:InitializeButton()
 	end
 
 	self:UpdateAll()
-	self:UpdateFlyout(true)
 
 	self:InitializeButtonSettings()
 end
@@ -373,10 +370,6 @@ end
 
 function ActionButton:OnLeave(...)
 	GameTooltip:Hide()
-
-	if self.flyout and self.flyout.arrow then
-		self.flyout.arrow:SetPoint(self.flyout.arrowPoint, self.flyout.arrowX, self.flyout.arrowY)
-	end
 end
 
 ------------------------------------------------------------
@@ -501,7 +494,6 @@ function ActionButton:UpdateButtonSpec()
 
 	self:LoadDataFromDatabase(spec, self.bar.handler:GetAttribute("activestate") or "homestate")
 	self:InitializeButtonSettings()
-	self:UpdateFlyout()
 	self:UpdateAll()
 end
 
@@ -743,7 +735,6 @@ function ActionButton:UpdateMacroCastTargets(global_update)
 		end
 
 		if macro_update then
-			button:UpdateFlyout()
 			button:InitializeButton()
 		end
 	end

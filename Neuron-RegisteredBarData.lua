@@ -9,6 +9,8 @@ local Neuron = addonTable.Neuron
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
 function Neuron:RegisterBars(DB)
+  -- CoA lite: Action bars + optional pet bar only.
+  -- Cast/Mirror/XP/Rep, Bag/Menu, and retail Extra/Zone/Exit are not registered.
   local allBars = {
     ActionBar = {
       class = "ActionBar",
@@ -19,24 +21,6 @@ function Neuron:RegisterBars(DB)
       objTemplate = Neuron.ActionButton,
       objMax = 250
     },
-    --[[BagBar = {
-      class = "BagBar",
-      barType = "BagBar",
-      barLabel = L["Bag Bar"],
-      objType = "BagButton",
-      barDB = DB.BagBar,
-      objTemplate = Neuron.BagButton,
-      objMax = Neuron.NUM_BAG_BUTTONS
-    },]]
-   --[[MenuBar = {
-      class = "MenuBar",
-      barType = "MenuBar",
-      barLabel = L["Menu Bar"],
-      objType = "MenuButton",
-      barDB = DB.MenuBar,
-      objTemplate = Neuron.MenuButton,
-      objMax = 11
-    },]]
     PetBar = {
       class = "PetBar",
       barType = "PetBar",
@@ -46,75 +30,7 @@ function Neuron:RegisterBars(DB)
       objTemplate = Neuron.PetButton,
       objMax = 10
     },
-    XPBar = {
-      class = "XPBar",
-      barType = "XPBar",
-      barLabel = L["XP Bar"],
-      objType = "ExpButton",
-      barDB = DB.XPBar,
-      objTemplate = Neuron.ExpButton,
-      objMax = 10
-    },
-    RepBar = {
-      class = "RepBar",
-      barType = "RepBar",
-      barLabel = L["Rep Bar"],
-      objType = "RepButton",
-      barDB = DB.RepBar,
-      objTemplate = Neuron.RepButton,
-      objMax = 10
-    },
-    CastBar = {
-      class = "CastBar",
-      barType = "CastBar",
-      barLabel = L["Cast Bar"],
-      objType = "CastButton",
-      barDB = DB.CastBar,
-      objTemplate = Neuron.CastButton,
-      objMax = 10
-    },
-    MirrorBar = {
-      class = "MirrorBar",
-      barType = "MirrorBar",
-      barLabel = L["Mirror Bar"],
-      objType = "MirrorButton",
-      barDB = DB.MirrorBar,
-      objTemplate = Neuron.MirrorButton,
-      objMax = 10
-    },
   }
-
-	if Neuron.isWoWRetail then
-    MergeTable(allBars, {
-      ZoneAbilityBar = {
-        class = "ZoneAbilityBar",
-        barType = "ZoneAbilityBar",
-        barLabel = L["Zone Action Bar"],
-        objType = "ZoneActionButton",
-        barDB = DB.ZoneAbilityBar,
-        objTemplate = Neuron.ZoneAbilityButton,
-        objMax = 5, true
-      },
-      ExtraBar = {
-        class = "ExtraBar",
-        barType = "ExtraBar",
-        barLabel = L["Extra Action Bar"],
-        objType = "ExtraActionButton",
-        barDB = DB.ExtraBar,
-        objTemplate = Neuron.ExtraButton,
-        objMax = 1
-      },
-      ExitBar = {
-        class = "ExitBar",
-        barType = "ExitBar",
-        barLabel = L["Vehicle Exit Bar"],
-        objType = "VehicleExitButton",
-        barDB = DB.ExitBar,
-        objTemplate = Neuron.ExitButton,
-        objMax = 1
-      },
-    })
-  end
 
   return allBars
 end

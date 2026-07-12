@@ -1,4 +1,4 @@
--- Neuron is a World of Warcraft(R) user interface addon.
+-- Neuron is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
@@ -20,12 +20,15 @@ end
 addonTable.Neuron = LibStub("AceAddon-3.0"):NewAddon(CreateFrame("Frame", nil, UIParent), "Neuron", "AceConsole-3.0", "AceEvent-3.0", "AceHook-3.0", "AceTimer-3.0", "AceSerializer-3.0")
 local Neuron = addonTable.Neuron
 
+-- Shared with LoadOnDemand Neuron_GUI (editor + AceGUI stack).
+Neuron.package = addonTable
+
 local DB
 
 local LibDeflate = LibStub:GetLibrary("LibDeflate")
 local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 
-local LATEST_VERSION_NUM = "1.4.25-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
+local LATEST_VERSION_NUM = "1.4.28-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
 
 --prepare the Neuron table with some sub-tables that will be used down the road
 Neuron.bars = {} --this table will be our main handle for all of our bars.
@@ -162,8 +165,7 @@ function Neuron:OnEnable()
 		SetCVar("ActionButtonUseKeyDown", 0)
 	end
 
-	Neuron.NeuronGUI:LoadInterfaceOptions()
-
+	-- Interface options / AceGUI editor load on demand via Neuron:EnsureGUI()
 end
 
 --- **OnDisable**, which is only called when your addon is manually being disabled.
@@ -213,7 +215,7 @@ function Neuron:OnTalentGroupChanged()
 	end
 	Neuron:UpdateSpellCache()
 	Neuron:UpdateStanceStrings()
-	if Neuron.buttonEditMode and Neuron.NeuronGUI and Neuron.NeuronGUI.RefreshEditor then
+	if Neuron.buttonEditMode and Neuron._guiLoaded and Neuron.NeuronGUI and Neuron.NeuronGUI.RefreshEditor then
 		Neuron.NeuronGUI:RefreshEditor("button")
 	end
 end
@@ -309,7 +311,7 @@ function Neuron:UPDATE_SHAPESHIFT_FORMS()
 end
 
 function Neuron:UPDATE_SHAPESHIFT_FORM()
-	-- Form swap only ? refresh icons; do not rebuild stance map drivers.
+	-- Form swap only — refresh icons; do not rebuild stance map drivers.
 	Neuron:RefreshActionButtonVisuals()
 end
 
@@ -346,12 +348,43 @@ function Neuron:LoginMessage()
 		print(" ")
 	end
 
-	--Shadowlands warning that will show as long as a player has one button on their ZoneAbilityBar for Shadowlands content
-	if Neuron.isWoWRetail and UnitLevel("player") >= 50 and Neuron.db.profile.ZoneAbilityBar[1] and #Neuron.db.profile.ZoneAbilityBar[1].buttons == 1 then
-		print(" ")
-		Neuron:Print(WrapTextInColorCode("IMPORTANT: Shadowlands content now requires multiple Zone Ability Buttons. Please add at least 3 buttons to your Zone Ability Bar to support this new functionality.", "FF00FFEC"))
-		print(" ")
+end
+
+--- Load Neuron_GUI (AceGUI + editor + Blizz options) on first use.
+---@return boolean
+function Neuron:EnsureGUI()
+	if Neuron._guiLoaded and Neuron.NeuronGUI then
+		return true
 	end
+	if InCombatLockdown and InCombatLockdown() then
+		Neuron:Print("Neuron editor cannot load during combat.")
+		return false
+	end
+
+	local name = "Neuron_GUI"
+	if type(IsAddOnLoaded) == "function" and IsAddOnLoaded(name) then
+		Neuron._guiLoaded = true
+		return Neuron.NeuronGUI ~= nil
+	end
+
+	local loaded, reason
+	if type(LoadAddOn) == "function" then
+		loaded, reason = LoadAddOn(name)
+	elseif type(C_AddOns) == "table" and type(C_AddOns.LoadAddOn) == "function" then
+		loaded, reason = C_AddOns.LoadAddOn(name)
+	else
+		Neuron:Print("Neuron_GUI could not be loaded (LoadAddOn unavailable).")
+		return false
+	end
+
+	if not loaded then
+		Neuron:Print("Failed to load Neuron_GUI: " .. tostring(reason or "unknown")
+			.. ". Ensure the Neuron_GUI folder is installed next to Neuron in Interface/AddOns.")
+		return false
+	end
+
+	Neuron._guiLoaded = true
+	return Neuron.NeuronGUI ~= nil
 end
 
 
@@ -470,9 +503,16 @@ function Neuron:UpdateSpellCache()
 end
 
 function Neuron:ToggleMainMenu()
+	if not Neuron:EnsureGUI() then
+		return
+	end
 	---need to run the command twice for some reason. The first one only seems to open the Interface panel
-	InterfaceOptionsFrame_OpenToCategory("Neuron");
-	InterfaceOptionsFrame_OpenToCategory("Neuron");
+	if type(InterfaceOptionsFrame_OpenToCategory) == "function" then
+		InterfaceOptionsFrame_OpenToCategory("Neuron")
+		InterfaceOptionsFrame_OpenToCategory("Neuron")
+	elseif Settings and Settings.OpenToCategory then
+		Settings.OpenToCategory("Neuron")
+	end
 end
 
 function Neuron:SelectFirstBar()
@@ -548,20 +588,7 @@ function Neuron:ToggleButtonEditMode(show)
 		return bar and bar.class == "ActionBar"
 	end
 
-	local isStatusBar = function(bar)
-		return
-			bar and (
-				bar.class == "XPBar" or
-				bar.class == "RepBar" or
-				bar.class == "CastBar" or
-				bar.class == "MirrorBar"
-			)
-	end
-
-	local bars = Array.concatenate(
-		Array.filter(isActionBar, Neuron.bars),
-		Array.filter(isStatusBar, Neuron.bars)
-	)
+	local bars = Array.filter(isActionBar, Neuron.bars)
 
 	if show then
 		Neuron.buttonEditMode = true
@@ -572,7 +599,7 @@ function Neuron:ToggleButtonEditMode(show)
 		local currentButton =
 			Neuron.currentButton or
 			(
-				(isActionBar(Neuron.currentBar) or isStatusBar(Neuron.currentBar))
+				isActionBar(Neuron.currentBar)
 				and unpack(Neuron.currentBar.buttons)
 			) or
 			Array.foldl(
@@ -590,10 +617,10 @@ function Neuron:ToggleButtonEditMode(show)
 			for _, button in pairs(bar.buttons) do
 				button.editFrame = button.editFrame or ButtonEditor.allocate(
 					button,
-					isActionBar(bar) and "corners" or "sides",
+					"corners",
 					function(btn)
 						Neuron.Button.ChangeSelectedButton(btn)
-						if addonTable.NeuronEditor then
+						if addonTable.NeuronEditor and Neuron.NeuronGUI then
 							Neuron.NeuronGUI:RefreshEditor()
 						end
 					end
@@ -683,12 +710,7 @@ end
 
 function Neuron:ToggleBindingMode(show)
 	local isBindable = function(bar)
-		return bar and (
-			bar.class == "ActionBar" or
-			bar.class == "ExtraBar" or
-			bar.class == "ZoneAbilityBar" or
-			bar.class == "PetBar"
-		)
+		return bar and (bar.class == "ActionBar" or bar.class == "PetBar")
 	end
 
 	local bars = Array.filter(isBindable, Neuron.bars)

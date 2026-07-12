@@ -97,108 +97,12 @@ function Neuron:HideBlizzardUI(profileDatabase)
 		end
 	end
 
-	-- we can't hide the microbutton/bag bar without also hiding the
-	-- group finder eye :-/ also it hides the big bag icon
-	if not blizzBars.BagBar and not blizzBars.MenuBar then
-		-- disableBarFrame(MicroButtonAndBagsBar)
-	end
+	-- Cast/Mirror/XP/Rep and bag/menu/exit/extra/zone are no longer managed by Neuron.
+	-- Leave standard UI (or other addons) in control of those frames.
 
-	if not blizzBars.BagBar then
-		--hide the weird color border around bag bars
-		--[[
-		CharacterReagentBag0Slot.IconBorder:Hide()
-		CharacterBag0Slot.IconBorder:Hide()
-		CharacterBag1Slot.IconBorder:Hide()
-		CharacterBag2Slot.IconBorder:Hide()
-		CharacterBag3Slot.IconBorder:Hide()
-
-
-		--overwrite the Show function with a null function because it keeps coming back and won't stay hidden
-		if not Neuron:IsHooked(CharacterReagentBag0Slot.IconBorder, "Show") then
-			Neuron:RawHook(CharacterBag0Slot.IconBorder, "Show", function() end, true)
-		end
-		if not Neuron:IsHooked(CharacterBag0Slot.IconBorder, "Show") then
-			Neuron:RawHook(CharacterBag0Slot.IconBorder, "Show", function() end, true)
-		end
-		if not Neuron:IsHooked(CharacterBag1Slot.IconBorder, "Show") then
-			Neuron:RawHook(CharacterBag1Slot.IconBorder, "Show", function() end, true)
-		end
-		if not Neuron:IsHooked(CharacterBag2Slot.IconBorder, "Show") then
-			Neuron:RawHook(CharacterBag2Slot.IconBorder, "Show", function() end, true)
-		end
-		if not Neuron:IsHooked(CharacterBag3Slot.IconBorder, "Show") then
-			Neuron:RawHook(CharacterBag3Slot.IconBorder, "Show", function() end, true)
-		end
-		]]
-	end
-	if not blizzBars.CastBar then
-		if Neuron.isWoWRetail then
-			PlayerCastingBarFrame:UnregisterAllEvents()
-			PlayerCastingBarFrame:SetParent(Neuron.hiddenFrame)
-		else
-			CastingBarFrame:UnregisterAllEvents()
-			CastingBarFrame:SetParent(Neuron.hiddenFrame)
-		end
-	end
-	if not blizzBars.ExitBar then
-		disableBarFrame(MainMenuBarVehicleLeaveButton)
-	end
-	if not blizzBars.ExtraBar then
-		disableButtonFrame(_G["ExtraActionButton1"])
-		disableBarFrame(ExtraAbilityContainer)
-		disableBarFrame(ExtraActionBarFrame)
-	end
-	if not blizzBars.MenuBar then
-		-- we don't actually want to disable these, we will just reparent them
-
-		--[[
-		disableButtonFrame(CharacterMicroButton)
-		disableButtonFrame(SpellbookMicroButton)
-		disableButtonFrame(TalentMicroButton)
-		disableButtonFrame(AchievementMicroButton)
-		disableButtonFrame(QuestLogMicroButton)
-		disableButtonFrame(GuildMicroButton)
-		disableButtonFrame(GroupFinderMicroButton)
-		disableButtonFrame(CollectionsMicroButton)
-		disableButtonFrame(EJMicroButton)
-		disableButtonFrame(StoreMicroButton)
-		disableButtonFrame(MainMenuMicroButton)
-		]]
-	end
-	if not blizzBars.MirrorBar then
-		UIParent:UnregisterEvent("MIRROR_TIMER_START")
-		MirrorTimer1:UnregisterAllEvents()
-		MirrorTimer1:SetParent(Neuron.hiddenFrame)
-		MirrorTimer2:UnregisterAllEvents()
-		MirrorTimer2:SetParent(Neuron.hiddenFrame)
-		MirrorTimer3:UnregisterAllEvents()
-		MirrorTimer3:SetParent(Neuron.hiddenFrame)
-	end
 	if not blizzBars.PetBar then
 		disableBarFrame(PetActionBar)
 		disableBarFrame(PetActionBarFrame)
-	end
-	if not blizzBars.RepBar then
-		disableBarFrame(ReputationWatchBar)
-
-		--disable the controller for status bars as we're going to handle this ourselves
-		if StatusTrackingBarManager then
-			StatusTrackingBarManager:Hide()
-			StatusTrackingBarManager:UnregisterAllEvents()
-		end
-	end
-	if not blizzBars.XPBar then
-		disableBarFrame(MainMenuExpBar)
-		disableBarFrame(MainMenuBarMaxLevelBar)
-
-		--disable the controller for status bars as we're going to handle this ourselves
-		if StatusTrackingBarManager then
-			StatusTrackingBarManager:Hide()
-			StatusTrackingBarManager:UnregisterAllEvents()
-		end
-	end
-	if not blizzBars.ZoneAbilityBar then
-		disableBarFrame(ZoneAbilityFrame)
 	end
 
 	----------------------------

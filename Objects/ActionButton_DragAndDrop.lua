@@ -102,8 +102,7 @@ function ActionButton:OnReceiveDrag()
 	elseif cursorType == "mount" then
 		self:PlaceMount(action1, action2)
 
-	elseif cursorType == "flyout" then
-		self:PlaceFlyout(action1, action2)
+	-- flyout cursor type intentionally ignored (flyout support removed)
 
 	elseif cursorType == "battlepet" then
 		self:PlaceBattlePet(action1, action2)
@@ -424,56 +423,6 @@ function ActionButton:PlaceBattlePet(action1, action2)
 	self:SetMacroUseNote()
 	self:SetMacroBlizzMacro()
 	self:SetMacroEquipmentSet()
-end
-
-
-function ActionButton:PlaceFlyout(action1, action2)
-	if action1 == 0 then
-		return
-	end
-
-	local count = #self.bar.buttons
-	local columns = self.bar.data.columns or count
-	local rows = count/columns
-
-	local point = self:GetPosition(UIParent)
-
-	if columns/rows > 1 then
-
-		if point:find("BOTTOM") then
-			point = "b:t:1"
-		elseif point:find("TOP") then
-			point = "t:b:1"
-		elseif point:find("RIGHT") then
-			point = "r:l:12"
-		elseif point:find("LEFT") then
-			point = "l:r:12"
-		else
-			point = "r:l:12"
-		end
-	else
-		if point:find("RIGHT") then
-			point = "r:l:12"
-		elseif point:find("LEFT") then
-			point = "l:r:12"
-		elseif point:find("BOTTOM") then
-			point = "b:t:1"
-		elseif point:find("TOP") then
-			point = "t:b:1"
-		else
-			point = "r:l:12"
-		end
-	end
-
-	self:SetMacroText("/flyout blizz:"..action1..":l:"..point..":c")
-	self:SetMacroIcon()
-	self:SetMacroName()
-	self:SetMacroNote()
-	self:SetMacroUseNote()
-	self:SetMacroBlizzMacro()
-	self:SetMacroEquipmentSet()
-
-	self:UpdateFlyout(true)
 end
 
 

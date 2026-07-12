@@ -63,6 +63,9 @@ function Neuron:Minimap_OnClickHandler(button)
 				Neuron:ToggleBindingMode(false)
 			end
 		else
+			if not Neuron:EnsureGUI() then
+				return
+			end
 			if not Neuron.barEditMode then
 				Neuron:ToggleBarEditMode(true)
 				if not addonTable.NeuronEditor then
@@ -88,6 +91,9 @@ function Neuron:Minimap_OnClickHandler(button)
 				Neuron:ToggleMainMenu()
 			end
 		else
+			if not Neuron:EnsureGUI() then
+				return
+			end
 			if not Neuron.buttonEditMode then
 				Neuron:ToggleButtonEditMode(true)
 				if not addonTable.NeuronEditor then
