@@ -4,7 +4,7 @@
 ## Title: Neuron GUI
 ## Notes: Lazy-loaded editor and options UI for Neuron (AceGUI + config panels)
 ## Author: Fyrhtu
-## Version: 1.4.27-CoA
+## Version: 1.4.28-CoA
 ## Dependencies: Neuron
 ## LoadOnDemand: 1
 ## DefaultState: enabled
