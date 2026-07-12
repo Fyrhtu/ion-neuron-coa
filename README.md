@@ -31,8 +31,15 @@ Slash commands: **`/macroforge`** or **`/mf`**.
 
 If you are upgrading from the **Neuron** CoA package:
 
-- Profiles migrate automatically from `NeuronProfilesDB` → `MacroForgeProfilesDB`
-- Disable or remove the old `Neuron` / `Neuron_GUI` folders after the first successful login to avoid double bars
+WoW stores SavedVariables **per addon folder** (`WTF/.../SavedVariables/Neuron.lua`).
+MacroForge cannot read that file unless the **Neuron** addon loads at least once.
+
+1. Keep the old `Neuron` folder installed for one migration login (can stay disabled).
+2. Log in with **MacroForge** enabled — it will try to auto-import, **or** run:
+   - `/mf importneuron`  
+   - `/mf importneuron force` (overwrite MacroForge data from Neuron)
+3. After a successful import, Neuron is auto-disabled; remove `Neuron` / `Neuron_GUI` when happy.
+4. If the Neuron folder is already gone, restore `Interface/AddOns/Neuron` temporarily **or** copy `WTF/.../SavedVariables/Neuron.lua` aside and reinstall Neuron once so its SV can load.
 
 ---
 

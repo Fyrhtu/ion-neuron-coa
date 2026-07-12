@@ -8,6 +8,7 @@ local _, addonTable = ...
 
 local Spec = addonTable.utilities.Spec
 local DBFixer = addonTable.utilities.DBFixer
+local NeuronImport = addonTable.utilities.NeuronImport
 local Array = addonTable.utilities.Array
 local ButtonBinder = addonTable.overlay.ButtonBinder
 local ButtonEditor = addonTable.overlay.ButtonEditor
@@ -28,7 +29,7 @@ local DB
 local LibDeflate = LibStub:GetLibrary("LibDeflate")
 local L = LibStub("AceLocale-3.0"):GetLocale("MacroForge")
 
-local LATEST_VERSION_NUM = "1.5.0-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
+local LATEST_VERSION_NUM = "1.5.1-CoA" --this variable is set to popup a welcome message upon updating/installing. Only change it if you want to pop up a message after the users next update
 
 --prepare the MacroForge table with some sub-tables that will be used down the road
 MacroForge.bars = {} --this table will be our main handle for all of our bars.
@@ -78,11 +79,23 @@ MacroForge.DEBUG = true
 --- do init tasks here, like loading the Saved Variables
 --- or setting up slash commands.
 function MacroForge:OnInitialize()
-	-- One-time SavedVariables bridge from the previous Neuron package name.
-	if type(NeuronProfilesDB) == "table" then
-		if type(MacroForgeProfilesDB) ~= "table" or not next(MacroForgeProfilesDB) then
-			MacroForgeProfilesDB = NeuronProfilesDB
+	-- Import legacy Neuron SavedVariables (from the Neuron addon folder / Neuron.lua).
+	-- OptionalDeps loads Neuron first when enabled; otherwise we try LoadAddOn once.
+	local imported, importMsg = NeuronImport.importNeuronProfiles(false)
+	if imported then
+		MacroForge:Print(importMsg)
+		-- Re-init cleanly with the new MacroForgeProfilesDB contents.
+		MacroForge:RegisterChatCommand("macroforge", "slashHandler")
+		MacroForge:RegisterChatCommand("mf", "slashHandler")
+		if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+			C_Timer.After(0.05, function() ReloadUI() end)
+		else
+			ReloadUI()
 		end
+		return
+	elseif importMsg and NeuronImport.looksUnconfigured(MacroForgeProfilesDB) then
+		-- Only nags when MF still looks empty/default so we do not spam configured users.
+		MacroForge:Print("Neuron profile import: " .. importMsg)
 	end
 
 	MacroForge.db = LibStub("AceDB-3.0"):New("MacroForgeProfilesDB", addonTable.databaseDefaults)
@@ -97,8 +110,10 @@ function MacroForge:OnInitialize()
 	MacroForge.db.RegisterCallback(MacroForge, "OnDatabaseReset", "RefreshConfig")
 
 	--load saved variables into working variable containers
-	MacroForge.itemCache = DB.MacroForgeItemCache
-	MacroForge.spellCache = DB.MacroForgeSpellCache
+	MacroForge.itemCache = DB.MacroForgeItemCache or DB.NeuronItemCache or {}
+	MacroForge.spellCache = DB.MacroForgeSpellCache or DB.NeuronSpellCache or {}
+	DB.MacroForgeItemCache = MacroForge.itemCache
+	DB.MacroForgeSpellCache = MacroForge.spellCache
 
 	MacroForge.class = select(2, UnitClass("player"))
 	MacroForge:UpdateStanceStrings()
@@ -125,6 +140,18 @@ function MacroForge:OnInitialize()
 		MacroForge:InitializeEmptyDatabase(DB)
 	end
 	MacroForge:CreateBarsAndButtons(DB)
+end
+
+--- /mf importneuron [force] — pull bars/profiles from legacy Neuron SavedVariables.
+function MacroForge:ImportNeuronCommand(arg)
+	local force = arg and tostring(arg):lower() == "force"
+	local ok, msg = NeuronImport.importNeuronProfiles(force)
+	if ok then
+		MacroForge:Print(msg)
+		ReloadUI()
+	else
+		MacroForge:Print("Import failed: " .. tostring(msg))
+	end
 end
 
 --- **OnEnable** which gets called during the PLAYER_LOGIN event, when most of the data provided by the game is already present.

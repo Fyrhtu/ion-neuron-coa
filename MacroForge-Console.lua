@@ -66,6 +66,13 @@ function MacroForge:slashHandler(input)
 
 	local commandAndArgs = {MacroForge:GetArgs(input, 3, 1)} --split the input into the command and the arguments
 	local command = commandAndArgs[1]:lower()
+
+	-- Built-in migration helper (not a bar setting).
+	if command == "importneuron" or command == "import" then
+		MacroForge:ImportNeuronCommand(commandAndArgs[2])
+		return
+	end
+
 	local args = {}
 	for i = 2,#commandAndArgs do
 		args[i-1] = commandAndArgs[i]
@@ -128,6 +135,7 @@ function MacroForge:printSlashHelp()
 		MacroForge:Print(slashFunctions[i][1].." - " .."("..slashFunctions[i][2]..")")
 	end
 
+	MacroForge:Print("importneuron [force] - Import bars/profiles from legacy Neuron SavedVariables")
 end
 
 function MacroForge:PrintStateList()

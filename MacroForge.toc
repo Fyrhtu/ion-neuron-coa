@@ -5,10 +5,10 @@
 ## Notes: Macro-first action bars for Ascension Conquest of Azeroth (CoA) and WotLK 3.3.5 — stateful bars, editable macros, drag-to-slot
 ## IconTexture: Interface\AddOns\MacroForge\Images\static_icon.tga
 ## Author: Fyrhtu
-## Version: 1.5.0-CoA
+## Version: 1.5.1-CoA
 ## DefaultState: enabled
-## OptionalDeps: Masque
-## SavedVariables: MacroForgeProfilesDB, NeuronProfilesDB
+## OptionalDeps: Masque, Neuron
+## SavedVariables: MacroForgeProfilesDB
 ## SavedVariablesPerCharacter:
 ## X-Credits-Maintainer: Fyrhtu
 ## X-Credits-Original: Britt W. Yazel (Neuron), Connor H. Chenoweth (Ion)
@@ -21,6 +21,7 @@ Localizations\MacroForge_Localizations.xml
 Utilities\Array.lua
 Utilities\Spec.lua
 Utilities\DB-Fixer.lua
+Utilities\NeuronImport.lua
 
 Overlay\ButtonBinder.lua
 Overlay\ButtonEditor.lua
