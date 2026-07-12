@@ -1,7 +1,7 @@
 name: Package and release
 
 # Publish a GitHub release zip when a version tag is pushed (e.g. v1.4.25-CoA),
-# or create that tag from main and package in one job via workflow_dispatch.
+# or create that tag from master and package in one job via workflow_dispatch.
 #
 # Note: tag pushes made with GITHUB_TOKEN do not re-trigger workflows, so
 # workflow_dispatch must package in the same job that creates the tag.
@@ -12,12 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to create from main and release (e.g. v1.4.25-CoA)'
+        description: 'Tag to create from master and release (e.g. v1.4.25-CoA)'
         required: true
-        default: 'v1.4.25-CoA'
+        default: 'v1.5.0-CoA'
 
 jobs:
-  # Manual: create tag (if needed) and package from main
+  # Manual: create tag (if needed) and package from master
   dispatch-release:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
+          ref: master
 
       - name: Create release tag if missing
         env:

@@ -55,7 +55,7 @@ Upstream Neuron (retail, still under active development):
 https://github.com/brittyazel/Neuron
 
 This repository:  
-https://github.com/Fyrhtu/ion-neuron-coa
+https://github.com/Fyrhtu/Macroforge
 
 ---
 

@@ -13,7 +13,7 @@
 ## X-Credits-Maintainer: Fyrhtu
 ## X-Credits-Original: Britt W. Yazel (Neuron), Connor H. Chenoweth (Ion)
 ## X-License: MIT
-## X-Website: https://github.com/Fyrhtu/ion-neuron-coa
+## X-Website: https://github.com/Fyrhtu/Macroforge
 
 Libs\embeds.xml
 Localizations\MacroForge_Localizations.xml
