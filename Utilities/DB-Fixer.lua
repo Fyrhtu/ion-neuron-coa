@@ -1,4 +1,4 @@
--- Neuron is a World of Warcraft® user interface addon.
+-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
@@ -6,7 +6,7 @@
 local _, addonTable = ...
 addonTable.utilities = addonTable.utilities or {}
 
-local LATEST_DB_VERSION = 1.5
+local LATEST_DB_VERSION = 1.6
 
 ------------------------------------------------------------
 --------------------Data Fixing Functions-------------------
@@ -34,7 +34,7 @@ end
 local function ogFixer(profile)
 	local oldDBVersion = profile.DBVersion
 	-- this file loads before we setup the addon with ace, so don't init at file level
-	local Neuron = addonTable.Neuron
+	local MacroForge = addonTable.MacroForge
 	---Added on 8/25/2018. Remove at some point in the future
 	---The purpose of this migration was to rename many of the DB tables to values that make more sense
 	if oldDBVersion < 1.1 then --this is the first of many DB fixes. This should be run first before the rest to migrate us into the DBVersion 1.1 state
@@ -61,16 +61,16 @@ local function ogFixer(profile)
 		profile["NeuronCDB"]["xbarFirstRun"] = nil
 
 		oldDBVersion = 1.1 --increment oldDBVersion up to the latest that this set of code fixes
-		Neuron:Print("Neuron database migrated to version " .. 1.1)
+		MacroForge:Print("MacroForge database migrated to version " .. 1.1)
 	end
 
 
 	---Added on 8/26/2018. Remove at some point in the future
 	---The purpose of this migrate is to get rid of the GDB/CDB divide
-	---this code takes everything that was in the NeuronCDB and NeuronGDB databases and merges them with all their contents taking the top level
+	---this code takes everything that was in the MacroForgeCDB and MacroForgeGDB databases and merges them with all their contents taking the top level
 	if oldDBVersion < 1.2 then
 		for k1,v1 in pairs(profile.NeuronGDB) do
-			if k1 == "bars" or k1 == "buttons" or k1 == "throttle" or k1 == "timerLimit" or k1 == "snapToTol" or k1 == "blizzbar" or k1 == "firstRun" or k1 == "NeuronIcon" then
+			if k1 == "bars" or k1 == "buttons" or k1 == "throttle" or k1 == "timerLimit" or k1 == "snapToTol" or k1 == "blizzbar" or k1 == "firstRun" or k1 == "NeuronIcon" or k1 == "MacroForgeIcon" then
 				profile[k1] = v1
 			end
 		end
@@ -110,7 +110,7 @@ local function ogFixer(profile)
 		end
 
 		oldDBVersion = 1.2 --increment oldDBVersion up to the latest that this set of code fixes
-		Neuron:Print("Neuron database migrated to version " .. 1.2)
+		MacroForge:Print("MacroForge database migrated to version " .. 1.2)
 	end
 
 
@@ -153,14 +153,14 @@ local function ogFixer(profile)
 		end
 
 		oldDBVersion = 1.3 --increment oldDBVersion up to the latest that this set of code fixes
-		Neuron:Print("Neuron database migrated to version " .. 1.3)
+		MacroForge:Print("MacroForge database migrated to version " .. 1.3)
 	end
 
 	profile.DBVersion = 1.3
 	return profile
 end
 
--- this is when we made enabling/disabling neuron/blizzard ui
+-- this is when we made enabling/disabling MacroForge/blizzard ui
 -- components more granular--eg, enable cast bar but not rep bar
 local function migrate1_3To1_4(profile)
 	local newProfile = CopyTable(profile)
@@ -218,6 +218,29 @@ local function migrate1_4To1_5(profile)
 	return newProfile
 end
 
+--- Rebrand Neuron → MacroForge: rename legacy profile field keys.
+local function migrate1_5To1_6(profile)
+	local newProfile = CopyTable(profile)
+
+	if newProfile.NeuronItemCache and not newProfile.MacroForgeItemCache then
+		newProfile.MacroForgeItemCache = newProfile.NeuronItemCache
+	end
+	newProfile.NeuronItemCache = nil
+
+	if newProfile.NeuronSpellCache and not newProfile.MacroForgeSpellCache then
+		newProfile.MacroForgeSpellCache = newProfile.NeuronSpellCache
+	end
+	newProfile.NeuronSpellCache = nil
+
+	if newProfile.NeuronIcon and not newProfile.MacroForgeIcon then
+		newProfile.MacroForgeIcon = newProfile.NeuronIcon
+	end
+	newProfile.NeuronIcon = nil
+
+	newProfile.DBVersion = 1.6
+	return newProfile
+end
+
 local function profileMigrate(profileDatabase)
 	if profileDatabase.DBVersion < 1.3 then
 		-- we need to copy the table for the og fixer, since it modifies in place
@@ -226,6 +249,8 @@ local function profileMigrate(profileDatabase)
 		return profileMigrate(migrate1_3To1_4(profileDatabase))
 	elseif profileDatabase.DBVersion == 1.4 then
 		return profileMigrate(migrate1_4To1_5(profileDatabase))
+	elseif profileDatabase.DBVersion == 1.5 then
+		return profileMigrate(migrate1_5To1_6(profileDatabase))
 	else
 		return profileDatabase
 	end
@@ -233,13 +258,13 @@ end
 
 local function loadingDatabaseFailed(DB)
 	StaticPopupDialogs["Profile_Migration_Failed"] = {
-		text = "We are sorry, but your Neuron profile migration has failed. By clicking accept you agree to reset your current profile to the its default values.",
+		text = "We are sorry, but your MacroForge profile migration has failed. By clicking accept you agree to reset your current profile to the its default values.",
 		button1 = ACCEPT,
 		button2 = CANCEL,
 		timeout = 0,
 		whileDead = true,
 		OnAccept = function() DB:ResetProfile() end,
-		OnCancel = function() DisableAddOn("Neuron"); ReloadUI() end,
+		OnCancel = function() DisableAddOn("MacroForge"); ReloadUI() end,
 	}
 	StaticPopup_Show("Profile_Migration_Failed")
 end
@@ -263,7 +288,7 @@ local function databaseMigration(DB)
 	end
 
 	--run again to re-register all of our wildcard ['*'] tables back in the newly shifted DB
-	return LibStub("AceDB-3.0"):New("NeuronProfilesDB", addonTable.databaseDefaults)
+	return LibStub("AceDB-3.0"):New("MacroForgeProfilesDB", addonTable.databaseDefaults)
 end
 
 addonTable.utilities.DBFixer = {databaseMigration=databaseMigration}

@@ -1,0 +1,53 @@
+## Interface: 30300
+## Interface-Wrath: 30401
+## Interface-Classic: 11403
+## Title: MacroForge
+## Notes: Macro-first action bars for Ascension Conquest of Azeroth (CoA) and WotLK 3.3.5 — stateful bars, editable macros, drag-to-slot
+## IconTexture: Interface\AddOns\MacroForge\Images\static_icon.tga
+## Author: Fyrhtu
+## Version: 1.5.0-CoA
+## DefaultState: enabled
+## OptionalDeps: Masque
+## SavedVariables: MacroForgeProfilesDB, NeuronProfilesDB
+## SavedVariablesPerCharacter:
+## X-Credits-Maintainer: Fyrhtu
+## X-Credits-Original: Britt W. Yazel (Neuron), Connor H. Chenoweth (Ion)
+## X-License: MIT
+## X-Website: https://github.com/Fyrhtu/ion-neuron-coa
+
+Libs\embeds.xml
+Localizations\MacroForge_Localizations.xml
+
+Utilities\Array.lua
+Utilities\Spec.lua
+Utilities\DB-Fixer.lua
+
+Overlay\ButtonBinder.lua
+Overlay\ButtonEditor.lua
+
+MacroForge-DB-Defaults.lua
+MacroForge.lua
+MacroForge-Compat.lua
+Overlay\BarEditor.lua
+MacroForge-StanceMap.lua
+MacroForge-States.lua
+MacroForge-RegisteredBarData.lua
+
+Objects\Button.lua
+Objects\Bar.lua
+Objects\ActionButton.lua
+Objects\ActionButton_DragAndDrop.lua
+Objects\PetButton.lua
+Objects\Bar_SnapTo.lua
+
+MacroForge-DisableBlizzardUI.lua
+MacroForge-Console.lua
+MacroForge-MinimapIcon.lua
+
+XML\MacroForgeActionButtonTemplate.xml
+XML\MacroForgeAnchorButtonTemplate.xml
+XML\MacroForgeBarTemplate.xml
+XML\MacroForgeOverlayFrameTemplate.xml
+
+MacroForge-Default-Profile.lua
+MacroForge-Startup.lua

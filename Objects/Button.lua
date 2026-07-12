@@ -1,17 +1,17 @@
--- Neuron is a World of Warcraft® user interface addon.
+-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
 
 local _, addonTable = ...
-local Neuron = addonTable.Neuron
+local MacroForge = addonTable.MacroForge
 
----@class NeuronButton : CheckButton @define Button as inheriting from CheckButton
+---@class MacroForgeButton : CheckButton @define Button as inheriting from CheckButton
 local Button = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
-Neuron.Button = Button
+MacroForge.Button = Button
 
 local Skin = LibStub("Masque", true)
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
+local L = LibStub("AceLocale-3.0"):GetLocale("MacroForge")
 
 LibStub("AceBucket-3.0"):Embed(Button)
 LibStub("AceEvent-3.0"):Embed(Button)
@@ -23,14 +23,14 @@ local ButtonEditor = addonTable.overlay.ButtonEditor
 local DEFAULT_VIRTUAL_KEY = "LeftButton"
 local NEURON_VIRTUAL_KEY = "Hotkey"
 
----Constructor: Create a new Neuron Button object (this is the base object for all Neuron button types)
+---Constructor: Create a new MacroForge Button object (this is the base object for all MacroForge button types)
 ---@param bar Bar @Bar Object this button will be a child of
 ---@param buttonID number @Button ID that this button will be assigned
 ---@param baseObj Button @Base object class for this specific button
 ---@param barClass string @Class type for the bar the button will be on
 ---@param objType string @Type of object this button will be
 ---@param template string @The template name that this frame will derive from
----@return NeuronButton @ A newly created Button object
+---@return MacroForgeButton @ A newly created Button object
 function Button.new(bar, buttonID, baseObj, barClass, objType, template)
 	local newButton
 	local newButtonName = bar:GetName().."_"..objType..buttonID
@@ -51,7 +51,7 @@ function Button.new(bar, buttonID, baseObj, barClass, objType, template)
 	newButton.objType = objType
 
 	if not rawget(bar.data.buttons, buttonID) then
-		rawset(bar.data.buttons, buttonID, Neuron:CreateButtonDatabaseEntry(barClass))
+		rawset(bar.data.buttons, buttonID, MacroForge:CreateButtonDatabaseEntry(barClass))
 	end
 	newButton.DB = rawget(bar.data.buttons, buttonID)
 
@@ -69,11 +69,11 @@ end
 ------------------------------------------------
 
 function Button.ChangeSelectedButton(newButton)
-	if newButton == Neuron.currentButton then
+	if newButton == MacroForge.currentButton then
 		return
-	elseif newButton and Neuron.currentButton then
-		if Neuron.currentButton.bar ~= newButton.bar then
-			local bar = Neuron.currentButton.bar
+	elseif newButton and MacroForge.currentButton then
+		if MacroForge.currentButton.bar ~= newButton.bar then
+			local bar = MacroForge.currentButton.bar
 
 			if bar.handler:GetAttribute("assertstate") then
 				bar.handler:SetAttribute("state-"..bar.handler:GetAttribute("assertstate"), bar.handler:GetAttribute("activestate") or "homestate")
@@ -82,17 +82,17 @@ function Button.ChangeSelectedButton(newButton)
 			newButton.bar.handler:SetAttribute("fauxstate", bar.handler:GetAttribute("activestate"))
 		end
 
-		ButtonEditor.deactivate(Neuron.currentButton.editFrame)
+		ButtonEditor.deactivate(MacroForge.currentButton.editFrame)
 		ButtonEditor.activate(newButton.editFrame)
-		Neuron.currentButton = newButton
-		Neuron.currentBar = newButton.bar
-	elseif newButton and not Neuron.currentButton then
+		MacroForge.currentButton = newButton
+		MacroForge.currentBar = newButton.bar
+	elseif newButton and not MacroForge.currentButton then
 		ButtonEditor.activate(newButton.editFrame)
-		Neuron.currentButton = newButton
-		Neuron.currentBar = newButton.bar
-	else -- not newButton and Neuron.currentButton
-		ButtonEditor.deactivate(Neuron.currentButton.editFrame)
-		Neuron.currentButton = nil
+		MacroForge.currentButton = newButton
+		MacroForge.currentBar = newButton.bar
+	else -- not newButton and MacroForge.currentButton
+		ButtonEditor.deactivate(MacroForge.currentButton.editFrame)
+		MacroForge.currentButton = nil
 	end
 end
 
@@ -145,19 +145,19 @@ function Button:SetCooldownTimer(start, duration, enable, modrate, showCountdown
 
 		if duration > 2 then --sets non GCD cooldowns
 			if charges and charges > 0 and maxCharges > 1 then
-				Neuron.SetCooldownSwipe(self.Cooldown, false)
-				Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
+				MacroForge.SetCooldownSwipe(self.Cooldown, false)
+				MacroForge.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
 			else
-				Neuron.SetCooldownSwipe(self.Cooldown, true)
-				Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
+				MacroForge.SetCooldownSwipe(self.Cooldown, true)
+				MacroForge.SetCooldownFrame(self.Cooldown, start, duration, enable, true, modrate)
 			end
 		else --sets GCD cooldowns
-			Neuron.SetCooldownSwipe(self.Cooldown, true)
-			Neuron.SetCooldownFrame(self.Cooldown, start, duration, enable, false, modrate)
+			MacroForge.SetCooldownSwipe(self.Cooldown, true)
+			MacroForge.SetCooldownFrame(self.Cooldown, start, duration, enable, false, modrate)
 		end
 
 		--this is only for abilities that have CD's >4 sec. Any less than that and we don't want to track the CD with text or alpha, just with the standard animation
-		if duration >= Neuron.TIMERLIMIT then --if spells have a cooldown less than 4sec then don't show a full cooldown
+		if duration >= MacroForge.TIMERLIMIT then --if spells have a cooldown less than 4sec then don't show a full cooldown
 
 			if showCountdownTimer or showCountdownAlpha then --only set a timer if we explicitely want to (this saves CPU for a lot of people)
 
@@ -295,7 +295,7 @@ function Button:LoadDataFromDatabase(curSpec, curState)
 		return
 	end
 
-	self.DB.config = Neuron:MergeButtonConfigDefaults(self.class, self.DB.config)
+	self.DB.config = MacroForge:MergeButtonConfigDefaults(self.class, self.DB.config)
 	self.config = self.DB.config
 	self.keys = self.DB.keys or { hotKeyLock = false, hotKeyPri = false, hotKeys = ":" }
 
@@ -374,9 +374,9 @@ function Button:SetSkinned(flyout)
 			Highlight = self.Highlight,
 		}
 		if flyout then
-			Skin:Group("Neuron", self.anchor.bar.data.name):AddButton(self, btnData, "Action")
+			Skin:Group("MacroForge", self.anchor.bar.data.name):AddButton(self, btnData, "Action")
 		else
-			Skin:Group("Neuron", self.bar.data.name):AddButton(self, btnData, "Action")
+			Skin:Group("MacroForge", self.bar.data.name):AddButton(self, btnData, "Action")
 		end
 	end
 end
@@ -421,7 +421,7 @@ end
 function Button:ApplyBindings()
 	local virtualKey
 
-	---checks if the button is a Neuron action or a special Blizzard action (such as a zone ability)
+	---checks if the button is a MacroForge action or a special Blizzard action (such as a zone ability)
 	---this is necessary because Blizzard buttons usually won't work and can give very weird results
 	---if clicked with a virtual key other than the default "LeftButton"
 	if self.class == "ActionBar" then
@@ -491,7 +491,7 @@ function Button:UpdateNormalTexture()
 end
 
 function Button:UpdateVisibility()
-	if self.isShown or Neuron.barEditMode or (Neuron.buttonEditMode and self.editFrame) or (Neuron.bindingMode and self.keybindFrame) then
+	if self.isShown or MacroForge.barEditMode or (MacroForge.buttonEditMode and self.editFrame) or (MacroForge.bindingMode and self.keybindFrame) then
 		self.isShown = true
 	else
 		self.isShown = false
@@ -638,11 +638,11 @@ end
 function Button:UpdateItemCooldown()
 	if self.item and self.isShown then
 		local start, duration, enable, modrate
-		if Neuron.itemCache[self.item:lower()] then
-			start, duration, enable, modrate = Neuron.GetItemCooldownCompat(Neuron.itemCache[self.item:lower()])
+		if MacroForge.itemCache[self.item:lower()] then
+			start, duration, enable, modrate = MacroForge.GetItemCooldownCompat(MacroForge.itemCache[self.item:lower()])
 		else
 			local itemID = GetItemInfoInstant and GetItemInfoInstant(self.item) or self.item
-			start, duration, enable, modrate = Neuron.GetItemCooldownCompat(itemID)
+			start, duration, enable, modrate = MacroForge.GetItemCooldownCompat(itemID)
 		end
 		self:SetCooldownTimer(start, duration, enable, modrate, self.bar:GetShowCooldownText(), self.bar:GetCooldownColor1(), self.bar:GetCooldownColor2(), self.bar:GetShowCooldownAlpha())
 	else
@@ -666,7 +666,7 @@ end
 -----------------------------------------------------------------------------------------
 
 function Button:UpdateUsable()
-	if Neuron.buttonEditMode or Neuron.bindingMode then
+	if MacroForge.buttonEditMode or MacroForge.bindingMode then
 		self.Icon:SetVertexColor(0.2, 0.2, 0.2)
 	elseif self.actionID then
 		self:UpdateUsableAction()
@@ -687,7 +687,7 @@ function Button:UpdateUsableSpell()
 	elseif isUsable then
 		if self.bar:GetShowRangeIndicator() and IsSpellInRange(self.spell, self.unit) == 0 then
 			self.Icon:SetVertexColor(self.bar:GetRangeColor()[1], self.bar:GetRangeColor()[2], self.bar:GetRangeColor()[3])
-		elseif self.bar:GetShowRangeIndicator() and Neuron.spellCache[self.spell:lower()] and IsSpellInRange(Neuron.spellCache[self.spell:lower()].index,"spell", self.unit) == 0 then
+		elseif self.bar:GetShowRangeIndicator() and MacroForge.spellCache[self.spell:lower()] and IsSpellInRange(MacroForge.spellCache[self.spell:lower()].index,"spell", self.unit) == 0 then
 			self.Icon:SetVertexColor(self.bar:GetRangeColor()[1], self.bar:GetRangeColor()[2], self.bar:GetRangeColor()[3])
 		else
 			self.Icon:SetVertexColor(1.0, 1.0, 1.0)
@@ -703,7 +703,7 @@ function Button:UpdateUsableItem()
 	--for some reason toys don't show as usable items, so this is a workaround for that
 	if not isUsable then
 		local itemID = GetItemInfoInstant(self.item)
-		if Neuron.isWoWRetail and itemID and PlayerHasToy(itemID) then
+		if MacroForge.isWoWRetail and itemID and PlayerHasToy(itemID) then
 			isUsable = true
 		end
 	end
@@ -713,7 +713,7 @@ function Button:UpdateUsableItem()
 	elseif isUsable then
 		if self.bar:GetShowRangeIndicator() and IsItemInRange(self.item, self.unit) == 0 then
 			self.Icon:SetVertexColor(self.bar:GetRangeColor()[1], self.bar:GetRangeColor()[2], self.bar:GetRangeColor()[3])
-		elseif Neuron.itemCache[self.item:lower()] and self.bar:GetShowRangeIndicator() and IsItemInRange(Neuron.itemCache[self.item:lower()], self.unit) == 0 then
+		elseif MacroForge.itemCache[self.item:lower()] and self.bar:GetShowRangeIndicator() and IsItemInRange(MacroForge.itemCache[self.item:lower()], self.unit) == 0 then
 			self.Icon:SetVertexColor(self.bar:GetRangeColor()[1], self.bar:GetRangeColor()[2], self.bar:GetRangeColor()[3])
 		else
 			self.Icon:SetVertexColor(1.0, 1.0, 1.0)
@@ -873,11 +873,11 @@ function Button:UpdateSpellTooltip()
 		elseif self.bar:GetTooltipOption() == "minimal" then
 			GameTooltip:SetText(self.spell, 1, 1, 1)
 		end
-	elseif Neuron.spellCache[self.spell:lower()] then --if the spell isn't in the spellbook, check our spell cache
+	elseif MacroForge.spellCache[self.spell:lower()] then --if the spell isn't in the spellbook, check our spell cache
 		if self.bar:GetTooltipOption() == "normal" then
-			GameTooltip:SetSpellByID(Neuron.spellCache[self.spell:lower()].spellID)
+			GameTooltip:SetSpellByID(MacroForge.spellCache[self.spell:lower()].spellID)
 		elseif self.bar:GetTooltipOption() == "minimal" then
-			GameTooltip:SetText(Neuron.spellCache[self.spell:lower()].spellName, 1, 1, 1)
+			GameTooltip:SetText(MacroForge.spellCache[self.spell:lower()].spellName, 1, 1, 1)
 		end
 	else
 		GameTooltip:SetText(UNKNOWN, 1, 1, 1)
@@ -886,7 +886,7 @@ end
 
 function Button:UpdateItemTooltip()
 	local name, link = GetItemInfo(self.item)
-	name = name or Neuron.itemCache[self.item:lower()]
+	name = name or MacroForge.itemCache[self.item:lower()]
 	link = link or "item:"..name..":0:0:0:0:0:0:0"
 
 	if not name or not link then

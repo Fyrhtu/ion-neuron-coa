@@ -1,0 +1,15 @@
+## Interface: 30300
+## Interface-Wrath: 30401
+## Interface-Classic: 11403
+## Title: MacroForge GUI
+## Notes: Lazy-loaded editor and options UI for MacroForge (AceGUI + config panels)
+## Author: Fyrhtu
+## Version: 1.5.0-CoA
+## Dependencies: MacroForge
+## LoadOnDemand: 1
+## DefaultState: enabled
+## X-License: MIT
+
+Libs\embeds.xml
+GUI\MacroForge-GUI.xml
+MacroForge_GUI.lua

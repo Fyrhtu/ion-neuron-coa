@@ -1,46 +1,78 @@
-# Neuron
-Neuron is a full-featured action Bar addon for [World of Warcraft: Dragonflight](https://worldofwarcraft.com/en-us/), updated for Patch 10.0.0
+# MacroForge
 
+**MacroForge** is a macro-first action bar addon for **Ascension: Conquest of Azeroth (CoA)** and **WotLK 3.3.5**-class clients.
 
-## Manual Install:
-I do not recommend downloading this addon directly from Github, as there are CurseForge packaging modifications made to the addon upon release. These modifications include updating all included libraries to their latest release versions and pulling in all of the crowd sourced localizations. I have made an effort to pull in periodic samplings of these, but what you will find in the packaged versions on CurseForge or WowInterface will be much more up to date.
+It focuses on what matters for deep, custom gameplay:
 
+- **Create, move, and configure custom bars**
+- **State-reactive layouts** — stealth, possession, vehicles, stances/forms, talent specs, and more
+- **Editable per-button macros**
+- **Drag a power or item onto a bar** to auto-create a macro
+- **Lean runtime** — Cast/Mirror/XP/Rep bars, flyouts, and heavy editor libraries are not loaded until you open the config UI
 
-## Want to Donate?
-Making add-ons is a lot of work! Your help goes a huge way to making my add-on work possible. If you would like to Donate, [Github Sponsors](https://github.com/sponsors/brittyazel "Sponsor Me") is the preferred method as they are currently matching donations dollar for dollar and take zero cut.
+Companion package (LoadOnDemand):
 
+| Folder | Role |
+|--------|------|
+| `MacroForge` | Core bars, states, macros, combat path |
+| `MacroForge_GUI` | Editor + AceGUI options (loads on first open) |
 
-## Translating
-The efforts to translate Neuron into many languages is a community project, and it could use your help!
+Slash commands: **`/macroforge`** or **`/mf`**.
 
-Head **[here](https://wow.curseforge.com/projects/neuron/localization)** to start translating.
+---
 
+## Install
 
-## Download:
-The addon can be downloaded at these places:
-* **[Curse](https://www.curseforge.com/wow/addons/neuron)** 
-* **[Curseforge](https://wow.curseforge.com/projects/neuron)**
-* **[WowInterface](https://www.wowinterface.com/downloads/info10636-Neuron.html)**
+1. Copy **both** folders into `Interface/AddOns/`:
+   - `MacroForge`
+   - `MacroForge_GUI`
+2. Enable both in the addon list (GUI is LoadOnDemand; it still must be present and enabled).
+3. `/reload`.
 
+If you are upgrading from the **Neuron** CoA package:
 
-## Development:
-Neuron development is all done using the **[Intellij IDEA](https://www.jetbrains.com/idea/download/#section=windows)** Community Edition IDE and with the assistance of the fantastic **[EmmyLua](https://plugins.jetbrains.com/plugin/9768-emmylua)** plugin. Detailed instructions on how I set up my development environment can be found **[here](https://github.com/Ellypse/IntelliJ-IDEA-Lua-IDE-WoW-API/wiki)**. Likewise, in game I make use of the addons **[BugGrabber](https://www.curseforge.com/wow/addons/bug-grabber)**, **[BugSack](https://www.curseforge.com/wow/addons/bugsack)**, and **[ViragDevTool](https://www.curseforge.com/wow/addons/varrendevtool)**, and in game tools such as **"/eventtrace"** and **"/framestack"**
+- Profiles migrate automatically from `NeuronProfilesDB` → `MacroForgeProfilesDB`
+- Disable or remove the old `Neuron` / `Neuron_GUI` folders after the first successful login to avoid double bars
 
-Development of Neuron requires an understanding of **[Lua syntax](https://www.lua.org/manual/5.3/manual.html)**, the **[WoW API](https://wow.gamepedia.com/World_of_Warcraft_API)**, and a working understanding of Git/GitHub. If you want to help with Neuron's development, I suggest: 
-1. Forking the project on [GitHub](https://github.com/brittyazel/Neuron) (some people use [GitHub Desktop](https://desktop.github.com/), but I personally use [GitKraken](https://www.gitkraken.com/))
-2. Setting up your aforementioned development environment
-3. Backing up your WTF folder
-4. [Symlinking](https://www.howtogeek.com/howto/16226/complete-guide-to-symbolic-links-symlinks-on-windows-or-linux/) your cloned Neuron git folder to your "World of Warcraft>\_retail_>Interface>Addons" folder
-5. Making your first change
+---
 
-A good place to start coding is by looking through the **[issue tracker](https://github.com/brittyazel/Neuron/issues)** to find any issues marked as "[good first issue](https://github.com/brittyazel/Neuron/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)". All code change submissions should come in the form of pull requests, so that I can review it and provide comments before merging.
+## Credits & lineage
 
-## Alternative Development
-If an IDE is not your scene, then we have provided a Nix based development environment. If you need Nix, then see the following section. Once you have Nix then you can type `env NEURON_INSTALL_DIR="<your WoW addon path>/Neuron" nix-shell --run make` and the build system will automatically install neuron and keep it synced with your changes
-### Nix
-Installing Nix can probably be done from your package manage in Linux or WSL. Alternatively you can type `sh <(curl -L https://nixos.org/nix/install) --daemon`. See https://nixos.org for more details.
+MacroForge stands on the shoulders of two major open-source projects:
 
+### Ion Action Bars
+**Connor H. Chenoweth** created the original *Ion Action Bars* architecture (secure state bars, multi-state buttons, and the overall design that still powers this code). Work prior to 2017 is his.
 
-### Disclaimer:
+### Neuron
+**Britt W. Yazel** continued and modernized Ion as **[Neuron](https://github.com/brittyazel/Neuron)** for retail World of Warcraft — Ace3 integration, UI polish, ongoing maintenance, and the community packaging/localization pipeline. MacroForge is **inspired by and derived from** that codebase.
 
-Neuron is a continuation of the amazing *Ion Action Bars* addon started by Connor H. Chenoweth. All credit for the work done prior to 2017 should go to him, accordingly.
+### This fork (MacroForge)
+**Fyrhtu** maintains this **Ascension CoA / WotLK 3.3.5** oriented fork: CoA multi-spec and form support, memory-focused trimming, LoadOnDemand editor, and a rebrand that reflects the macro-centric design.
+
+License: **MIT** (see `LICENSE`). Please keep attribution for Britt W. Yazel and Connor H. Chenoweth when redistributing.
+
+Upstream Neuron (retail, still under active development):  
+https://github.com/brittyazel/Neuron
+
+This repository:  
+https://github.com/Fyrhtu/ion-neuron-coa
+
+---
+
+## Development
+
+The git root is the `MacroForge` package itself. The LoadOnDemand GUI lives in `MacroForge_GUI/` and is installed as a **sibling** AddOn (not nested under `MacroForge/` at runtime).
+
+```bash
+# Example install target (adjust path)
+export NEURON_INSTALL_DIR="/path/to/Interface/AddOns/MacroForge"
+make install   # installs MacroForge + MacroForge_GUI
+```
+
+Helpful in-game tools: **BugGrabber**, **BugSack**, `/eventtrace`, `/framestack`.
+
+---
+
+## Disclaimer
+
+MacroForge is **not** official Neuron and is **not** a drop-in replacement for the retail CurseForge Neuron package. It targets Ascension CoA and similar 3.3.5-based clients, with a deliberately smaller feature surface focused on custom macro bars and state paging.

@@ -1,0 +1,19 @@
+<!--MacroForge is a World of Warcraft® user interface addon.
+	Copyright (c) 2017-2023 Britt W. Yazel
+	Copyright (c) 2006-2014 Connor H. Chenoweth
+	This code is licensed under the MIT license (see LICENSE for details)-->
+
+<Ui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.blizzard.com/wow/ui/" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+https://raw.githubusercontent.com/Gethe/wow-ui-source/live/Interface/FrameXML/UI_shared.xsd">
+	<Script file="MacroForge_X-enUS.lua"/>
+	<Script file="MacroForge_X-deDE.lua"/>
+	<Script file="MacroForge_X-esES.lua"/>
+	<Script file="MacroForge_X-esMX.lua"/>
+	<Script file="MacroForge_X-frFR.lua"/>
+	<Script file="MacroForge_X-itIT.lua"/>
+	<Script file="MacroForge_X-koKR.lua"/>
+	<Script file="MacroForge_X-ptBR.lua"/>
+	<Script file="MacroForge_X-ruRU.lua"/>
+	<Script file="MacroForge_X-zhCN.lua"/>
+	<Script file="MacroForge_X-zhTW.lua"/>
+</Ui>

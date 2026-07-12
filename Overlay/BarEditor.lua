@@ -1,4 +1,4 @@
--- Neuron is a World of Warcraft® user interface addon.
+-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
@@ -7,14 +7,14 @@ local _, addonTable = ...
 
 addonTable.overlay = addonTable.overlay or {}
 
-local function GetNeuron()
-	return addonTable.Neuron
+local function GetMacroForge()
+	return addonTable.MacroForge
 end
 
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
+local L = LibStub("AceLocale-3.0"):GetLocale("MacroForge")
 
 ---type definition the contents of the xml file
----@class NeuronBarFrame:CheckButton,ScriptObject
+---@class MacroForgeBarFrame:CheckButton,ScriptObject
 ---@field Text FontString
 ---@field Message FontString
 ---@field MessageBG Texture
@@ -22,12 +22,12 @@ local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
 ---@class BarOverlay
 ---@field active boolean
 ---@field bar Bar
----@field frame NeuronBarFrame
+---@field frame MacroForgeBarFrame
 ---@field microadjust number
 ---@field dragging boolean
 ---@field onClick fun(overlay: BarOverlay, button:string, down: boolean):nil
 
----@type NeuronBarFrame[]
+---@type MacroForgeBarFrame[]
 local framePool = {}
 
 local DRAG_THRESHOLD_SQ = 16
@@ -135,19 +135,19 @@ local function updateAppearance(overlay)
 	if overlay.microadjust == 0 then
 		overlay.frame.Message:Hide()
 		overlay.frame.MessageBG:Hide()
-		local Neuron = GetNeuron()
-		if Neuron and Neuron.barEditMode then
+		local MacroForge = GetMacroForge()
+		if MacroForge and MacroForge.barEditMode then
 			overlay.frame:SetFrameStrata("TOOLTIP")
-		elseif Neuron then
-			overlay.frame:SetFrameStrata(Neuron.STRATAS[overlay.bar:GetStrata()])
+		elseif MacroForge then
+			overlay.frame:SetFrameStrata(MacroForge.STRATAS[overlay.bar:GetStrata()])
 		end
 	else
 		-- overlay never gets keyboard events unless a high strata
 		-- this hack doesn't work if there is a tooltip level bar
 		-- until you choose that bar and then it starts working for others
-		local Neuron = GetNeuron()
-		if Neuron then
-			overlay.frame:SetFrameStrata(Neuron.STRATAS[#Neuron.STRATAS])
+		local MacroForge = GetMacroForge()
+		if MacroForge then
+			overlay.frame:SetFrameStrata(MacroForge.STRATAS[#MacroForge.STRATAS])
 		end
 		overlay.frame:SetBackdropColor(1,1,0,0.6)
 		overlay.frame.Message:Show()
@@ -247,9 +247,9 @@ local function finishDrag(overlay)
 
 	local point
 
-	for _,v in pairs(GetNeuron().bars) do
+	for _,v in pairs(GetMacroForge().bars) do
 		if not point and overlay.bar:GetSnapTo() and v:GetSnapTo() and overlay.bar ~= v then
-			point = overlay.bar:Stick(v, GetNeuron().SNAPTO_TOLERANCE, overlay.bar:GetHorizontalPad(), overlay.bar:GetVerticalPad())
+			point = overlay.bar:Stick(v, GetMacroForge().SNAPTO_TOLERANCE, overlay.bar:GetHorizontalPad(), overlay.bar:GetVerticalPad())
 
 			if point then
 				overlay.bar.data.snapToPoint = point
@@ -353,7 +353,7 @@ BarEditor = {
 			bar = bar,
 			frame = -- try to pop a frame off the stack, otherwise make a new one
 				table.remove(framePool) or
-				createBarOverlayFrame() --[[@as NeuronBarFrame]],
+				createBarOverlayFrame() --[[@as MacroForgeBarFrame]],
 			microadjust = 0,
 			dragging = false,
 			dragPending = false,
@@ -396,7 +396,7 @@ BarEditor = {
 	end,
 
 	syncAll = function()
-		for _, bar in pairs(GetNeuron().bars) do
+		for _, bar in pairs(GetMacroForge().bars) do
 			if bar.editFrame then
 				stopBarDrag(bar.editFrame)
 				updateAppearance(bar.editFrame)

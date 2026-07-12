@@ -1,4 +1,4 @@
--- Neuron is a World of Warcraft® user interface addon.
+-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
@@ -7,7 +7,7 @@ local _, addonTable = ...
 
 addonTable.overlay = addonTable.overlay or {}
 
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
+local L = LibStub("AceLocale-3.0"):GetLocale("MacroForge")
 
 ---@class BinderOverlay
 ---@field button Button
@@ -25,7 +25,7 @@ local function getBindKeyList(keys)
 		return L["None"]
 	end
 
-	local bindkeys = keys.hotKeys:gsub("[^:]+", addonTable.Neuron.Button.hotKeyText):gsub(":", ", ")
+	local bindkeys = keys.hotKeys:gsub("[^:]+", addonTable.MacroForge.Button.hotKeyText):gsub(":", ", ")
 
 	bindkeys = bindkeys:gsub("^, ", "")
 	bindkeys = bindkeys:gsub(", $", "")
@@ -73,7 +73,7 @@ local function updateTooltip(overlay)
 
 	GameTooltip:SetOwner(overlay.frame, "ANCHOR_RIGHT")
 	GameTooltip:ClearLines()
-	GameTooltip:SetText("Neuron", 1.0, 1.0, 1.0)
+	GameTooltip:SetText("MacroForge", 1.0, 1.0, 1.0)
 	GameTooltip:AddLine(L["Keybind_Tooltip_1"] .. ": |cffffffff" .. name  .. "|r")
 	GameTooltip:AddLine(L["Keybind_Tooltip_2"] .. ": |cffffffff" .. getBindKeyList(overlay.button.keys) .. "|r")
 	GameTooltip:AddLine(" ")
@@ -160,7 +160,7 @@ local ButtonBinder = {
 			button = button,
 			frame = -- try to pop a frame off the stack, otherwise make a new one
 				table.remove(framePool) or
-				CreateFrame("Button", nil, UIParent, "NeuronOverlayFrameTemplate") --[[@as ButtonOverlayFrame]],
+				CreateFrame("Button", nil, UIParent, "MacroForgeOverlayFrameTemplate") --[[@as ButtonOverlayFrame]],
 			onBindCallback = onBindCallback,
 		}
 

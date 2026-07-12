@@ -1,11 +1,10 @@
-package-as: Neuron
+package-as: MacroForge
 
 enable-nolib-creation: no
 enable-toc-creation: yes
 
 optional-dependencies:
   - masque
-  - masque-neuron
 
 embedded-libraries:
   - Ace3
@@ -13,7 +12,7 @@ embedded-libraries:
   - LibDBIcon-1-0
   - LibDeflate
 
-# theoretically we can get rid of the ignore files now that we have the makefile
 ignore:
   - README.md
   - dist
+  - MacroForge_GUI

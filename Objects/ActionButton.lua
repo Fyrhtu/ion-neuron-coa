@@ -1,16 +1,16 @@
-﻿-- Neuron is a World of Warcraft® user interface addon.
+﻿-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
 
 local _, addonTable = ...
-local Neuron = addonTable.Neuron
+local MacroForge = addonTable.MacroForge
 
 local Spec = addonTable.utilities.Spec
 
 ---@class ActionButton : Button @define class ActionButton inherits from class Button
-local ActionButton = setmetatable({}, {__index = Neuron.Button}) --this is the metatable for our button object
-Neuron.ActionButton = ActionButton
+local ActionButton = setmetatable({}, {__index = MacroForge.Button}) --this is the metatable for our button object
+MacroForge.ActionButton = ActionButton
 
 ---------------------------------------------------------
 -------------------declare globals-----------------------
@@ -71,14 +71,14 @@ local COMMAND_LIST = {
 	["#autowrite"] = true,
 }
 
----Constructor: Create a new Neuron Button object (this is the base object for all Neuron button types)
+---Constructor: Create a new MacroForge Button object (this is the base object for all MacroForge button types)
 ---@param bar Bar @Bar Object this button will be a child of
 ---@param buttonID number @Button ID that this button will be assigned
 ---@param defaults table @Default options table to be loaded onto the given button
 ---@return ActionButton @ A newly created ActionButton object
 function ActionButton.new(bar, buttonID, defaults)
 	--call the parent object constructor with the provided information specific to this button type
-	local newButton = Neuron.Button.new(bar, buttonID, ActionButton, "ActionBar", "ActionButton", "NeuronActionButtonTemplate")
+	local newButton = MacroForge.Button.new(bar, buttonID, ActionButton, "ActionBar", "ActionButton", "MacroForgeActionButtonTemplate")
 
 	if defaults then
 		newButton:SetDefaults(defaults)
@@ -106,18 +106,18 @@ function ActionButton:InitializeButton()
 
 	--this is to allow for the correct releasing of the button when dragging icons off of the bar
 	--we need to hook to the WorldFrame OnReceiveDrag and OnMouseDown so that we can "let go" of the spell when we drag it off the bar
-	if not Neuron:IsHooked(WorldFrame, "OnReceiveDrag") then
-		Neuron:HookScript(WorldFrame, "OnReceiveDrag", function() ActionButton:WorldFrame_OnReceiveDrag() end)
+	if not MacroForge:IsHooked(WorldFrame, "OnReceiveDrag") then
+		MacroForge:HookScript(WorldFrame, "OnReceiveDrag", function() ActionButton:WorldFrame_OnReceiveDrag() end)
 	end
-	if not Neuron:IsHooked(WorldFrame, "OnMouseDown") then
-		Neuron:HookScript(WorldFrame, "OnMouseDown", function() ActionButton:WorldFrame_OnReceiveDrag() end)
+	if not MacroForge:IsHooked(WorldFrame, "OnMouseDown") then
+		MacroForge:HookScript(WorldFrame, "OnMouseDown", function() ActionButton:WorldFrame_OnReceiveDrag() end)
 	end
 
 	self:SetScript("OnAttributeChanged", function(_, name, value) self:OnAttributeChanged(name, value) end)
 	self:SetScript("OnEnter", function() self:UpdateTooltip() end)
 	self:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-	if Neuron.isWoWRetail then
+	if MacroForge.isWoWRetail then
 		self:SetAttribute("overrideID_Offset", 204)
 		self:SetAttribute("vehicleID_Offset", 180)
 		self:SetAttribute("dragonridingID_Offset", 120)
@@ -216,7 +216,7 @@ function ActionButton:InitializeButton()
 end
 
 function ActionButton:InitializeButtonSettings()
-	self:SetFrameStrata(Neuron.STRATAS[self.bar:GetStrata()-1])
+	self:SetFrameStrata(MacroForge.STRATAS[self.bar:GetStrata()-1])
 	self:SetScale(self.bar:GetBarScale())
 
 	if self.bar:GetShowBindText() then
@@ -286,7 +286,7 @@ function ActionButton:SetupEvents()
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", "UpdateAll")
 	self:RegisterEvent("UNIT_PET", "UpdateAll")
 
-	if Neuron.isWoWRetail then
+	if MacroForge.isWoWRetail then
 		self:RegisterEvent("EQUIPMENT_SETS_CHANGED")
 
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", "UpdateAll")
@@ -311,7 +311,7 @@ function ActionButton:OnAttributeChanged(name, value)
 			--Part 2 of Druid Prowl overwrite fix (part 1 below)
 			-----------------------------------------------------
 			--breaks out of the loop due to flag set below
-			if Neuron.class == "DRUID" and self.ignoreNextOverrideStance == true and value == "homestate" then
+			if MacroForge.class == "DRUID" and self.ignoreNextOverrideStance == true and value == "homestate" then
 				self.ignoreNextOverrideStance = nil
 				-- Force stealth secondary ON. Never call SetState("stealth") without
 				-- gui=true — that toggles the saved flag and unchecks Stealth.
@@ -341,7 +341,7 @@ function ActionButton:OnAttributeChanged(name, value)
 				---------------------------------------------------
 				--druids have an issue where once stance will get immediately overwritten by another. I.E. stealth immediately getting overwritten by homestate if they go immediately into prowl from caster form
 				--this conditional sets a flag to ignore the next most stance flag, as that one is most likely in error and should be ignored
-				if Neuron.class == "DRUID" and value == "stealth1" then
+				if MacroForge.class == "DRUID" and value == "stealth1" then
 					self.ignoreNextOverrideStance = true
 				end
 				------------------------------------------------------
@@ -563,7 +563,7 @@ end
 --subname: subname of spell to use (optional)
 --return: macro text
 function ActionButton:AutoWriteMacro(spell)
-	local DB = Neuron.db.profile
+	local DB = MacroForge.db.profile
 
 	local spellName
 	local spellID
@@ -573,29 +573,29 @@ function ActionButton:AutoWriteMacro(spell)
 
 	--if there is an alt name associated with a given ability, and the alt name is known (i.e. the base spell) use the alt name instead
 	--This is important because a macro written with the base name "/cast Roll()" will work for talented abilities, but "/cast Chi Torpedo" won't work for base abilities
-	if Neuron.spellCache[spell:lower()] then
-		spellName = Neuron.spellCache[spell:lower()].spellName
-		spellID = Neuron.spellCache[spell:lower()].spellID
+	if MacroForge.spellCache[spell:lower()] then
+		spellName = MacroForge.spellCache[spell:lower()].spellName
+		spellID = MacroForge.spellCache[spell:lower()].spellID
 
-		altName = Neuron.spellCache[spell:lower()].altName
-		altSpellID = Neuron.spellCache[spell:lower()].altSpellID
+		altName = MacroForge.spellCache[spell:lower()].altName
+		altSpellID = MacroForge.spellCache[spell:lower()].altSpellID
 
 		if not altSpellID or altSpellID <= 0 then
 			altSpellID = nil
 			altName = nil
 		end
 
-		if altSpellID and altName and Neuron.IsSpellKnownCompat(altSpellID) then
+		if altSpellID and altName and MacroForge.IsSpellKnownCompat(altSpellID) then
 			spell = altName
 		else
 			spell = spellName
 		end
-	elseif not Neuron.isWoWLegacy then
+	elseif not MacroForge.isWoWLegacy then
 		_,_,_,_,_,_,spellID = GetSpellInfo(spell)
 	end
 
 	local modifier, modKey = " ", nil
-	local bar = Neuron.currentBar or self.bar
+	local bar = MacroForge.currentBar or self.bar
 
 	if bar.data.mouseOverCast and DB.mouseOverMod ~= "NONE"  then
 		modKey = DB.mouseOverMod
@@ -661,7 +661,7 @@ end
 --return: updated macro text
 --[[function ActionButton:AutoUpdateMacro(macro)
 
-	local DB = Neuron.db.profile
+	local DB = MacroForge.db.profile
 
 	if GetModifiedClick("SELFCAST") ~= "NONE"  then
 		macro = macro:gsub("%[@player,mod:%u+%]", "[@player,mod:"..GetModifiedClick("SELFCAST").."]")
@@ -696,14 +696,14 @@ function ActionButton:UpdateMacroCastTargets(global_update)
 
 	if global_update then
 
-		for _,bar in ipairs(Neuron.bars) do
+		for _,bar in ipairs(MacroForge.bars) do
 			for _, object in ipairs(bar.buttons) do
 				table.insert(button_list, object)
 			end
 		end
 
 	else
-		local bar = Neuron.currentBar
+		local bar = MacroForge.currentBar
 		for i, object in ipairs(bar.buttons) do
 			table.insert(button_list, object)
 		end
@@ -748,9 +748,9 @@ end]]
 --overwrite function in parent class Button
 function ActionButton:UpdateAll()
 	--pass to parent UpdateAll function
-	Neuron.Button.UpdateAll(self)
+	MacroForge.Button.UpdateAll(self)
 
-	if Neuron.isWoWRetail then
+	if MacroForge.isWoWRetail then
 		self:UpdateGlow()
 	end
 end
@@ -800,15 +800,15 @@ function ActionButton.ExtractMacroData(macro)
 		if abilityOrItem and #abilityOrItem > 0 and command:find("/castsequence") then --this always will set the button info the next ability or item in the sequence
 			_, item, spell = QueryCastSequence(abilityOrItem) --it will only ever return as either item or spell, never both
 		elseif abilityOrItem and #abilityOrItem > 0 then
-			if Neuron.itemCache[abilityOrItem:lower()] then --if our abilityOrItem is actually an item in our cache, amend it as such
+			if MacroForge.itemCache[abilityOrItem:lower()] then --if our abilityOrItem is actually an item in our cache, amend it as such
 				item = abilityOrItem
 			elseif GetItemInfo(abilityOrItem) then
 				item = abilityOrItem
 			elseif tonumber(abilityOrItem) and GetInventoryItemLink("player", abilityOrItem) then --in case abilityOrItem is a number and corresponds to a valid inventory item
 				item = GetInventoryItemLink("player", abilityOrItem)
-			elseif Neuron.spellCache[abilityOrItem:lower()] then
+			elseif MacroForge.spellCache[abilityOrItem:lower()] then
 				spell = abilityOrItem
-				spellID = Neuron.spellCache[abilityOrItem:lower()].spellID
+				spellID = MacroForge.spellCache[abilityOrItem:lower()].spellID
 			elseif GetSpellInfo(abilityOrItem) then
 				spell = abilityOrItem
 				_,_,_,_,_,_,spellID = GetSpellInfo(abilityOrItem)
@@ -841,7 +841,7 @@ end
 
 --overwrite function in parent class Button
 function ActionButton:UpdateVisibility(show)
-	if self:HasAction() or Neuron.dragging or show or self.bar:GetShowGrid() or Neuron.buttonEditMode or Neuron.barEditMode or Neuron.bindingMode then
+	if self:HasAction() or MacroForge.dragging or show or self.bar:GetShowGrid() or MacroForge.buttonEditMode or MacroForge.barEditMode or MacroForge.bindingMode then
 		self.isShown = true
 	else
 		self.isShown = false
@@ -857,7 +857,7 @@ function ActionButton:UpdateVisibility(show)
 		end
 	end
 
-	Neuron.Button.UpdateVisibility(self)
+	MacroForge.Button.UpdateVisibility(self)
 end
 
 -----------------------------------------------------------------------------------------
@@ -866,7 +866,7 @@ end
 
 
 function ActionButton:UpdateIcon()
-	if Neuron.pendingReload then
+	if MacroForge.pendingReload then
 		return
 	end
 
@@ -940,8 +940,8 @@ function ActionButton.GetSpellAppearance(spell)
 	local texture = GetSpellTexture(spell)
 
 	if not texture then
-		if Neuron.spellCache[spell:lower()] then
-			texture = Neuron.spellCache[spell:lower()].icon
+		if MacroForge.spellCache[spell:lower()] then
+			texture = MacroForge.spellCache[spell:lower()].icon
 		end
 	end
 
@@ -959,8 +959,8 @@ function ActionButton.GetItemAppearance(item)
 	local texture = GetItemIcon(item)
 
 	if not texture then
-		if Neuron.itemCache[item:lower()] then
-			texture = GetItemIcon("item:"..Neuron.itemCache[item:lower()]..":0:0:0:0:0:0:0"--[[@as number]])
+		if MacroForge.itemCache[item:lower()] then
+			texture = GetItemIcon("item:"..MacroForge.itemCache[item:lower()]..":0:0:0:0:0:0:0"--[[@as number]])
 		end
 	end
 

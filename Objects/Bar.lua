@@ -1,10 +1,10 @@
--- Neuron is a World of Warcraft® user interface addon.
+-- MacroForge is a World of Warcraft® user interface addon.
 -- Copyright (c) 2017-2023 Britt W. Yazel
 -- Copyright (c) 2006-2014 Connor H. Chenoweth
 -- This code is licensed under the MIT license (see LICENSE for details)
 
 local _, addonTable = ...
-local Neuron = addonTable.Neuron
+local MacroForge = addonTable.MacroForge
 
 local Spec = addonTable.utilities.Spec
 
@@ -14,9 +14,9 @@ end
 
 ---@class Bar : CheckButton @This is our bar object that serves as the container for all of our button objects
 local Bar = setmetatable({}, {__index = CreateFrame("CheckButton")}) --this is the metatable for our button object
-Neuron.Bar = Bar
+MacroForge.Bar = Bar
 
-local L = LibStub("AceLocale-3.0"):GetLocale("Neuron")
+local L = LibStub("AceLocale-3.0"):GetLocale("MacroForge")
 
 LibStub("AceTimer-3.0"):Embed(Bar)
 LibStub("AceEvent-3.0"):Embed(Bar)
@@ -30,21 +30,21 @@ Trashcan:Hide()
 
 ----------------------------------------------------
 
----Constructor: Create a new Neuron Bar object
+---Constructor: Create a new MacroForge Bar object
 ---@param class string @The class type of the new bar
 ---@param barID number @The ID of the new bar object
 ---@return Bar @ A newly created Button object
 function Bar.new(class, barID)
-	local data = Neuron.registeredBarData[class]
+	local data = MacroForge.registeredBarData[class]
 
 	local newBar
 
 	--this is the creation of our bar object frame
-	if _G["Neuron"..data.barType..barID] then --check to see if our bar already exists on the global namespace
-		newBar = CreateFrame("CheckButton", "Neuron"..data.barType..random(1000,10000000), UIParent, "NeuronBarTemplate") --in the case of trying to create a bar on a frame that already exists, create a random frame ID for this session only
+	if _G["MacroForge"..data.barType..barID] then --check to see if our bar already exists on the global namespace
+		newBar = CreateFrame("CheckButton", "MacroForge"..data.barType..random(1000,10000000), UIParent, "MacroForgeBarTemplate") --in the case of trying to create a bar on a frame that already exists, create a random frame ID for this session only
 		setmetatable(newBar, {__index = Bar})
 	else
-		newBar = CreateFrame("CheckButton", "Neuron"..data.barType..barID, UIParent, "NeuronBarTemplate")
+		newBar = CreateFrame("CheckButton", "MacroForge"..data.barType..barID, UIParent, "MacroForgeBarTemplate")
 		setmetatable(newBar, {__index = Bar})
 	end
 
@@ -55,7 +55,7 @@ function Bar.new(class, barID)
 
 	-- Use rawget/rawset: AceDB bar tables auto-create entries on indexed access.
 	if not rawget(data.barDB, barID) then
-		local entry = Neuron:CreateBarDatabaseEntry(class)
+		local entry = MacroForge:CreateBarDatabaseEntry(class)
 		entry.y = (entry.y or 190) + (barID - 1) * 45
 		rawset(data.barDB, barID, entry)
 	end
@@ -83,7 +83,7 @@ function Bar.new(class, barID)
 	-- bars whose frame is not created to be deleted from the DB. This is
 	-- more of a structural issue I think, and hopefully resolve itself when
 	-- we start making separate objects for bar data and bar frames
-	table.insert(Neuron.bars, newBar) --insert our new bar at the end of the table
+	table.insert(MacroForge.bars, newBar) --insert our new bar at the end of the table
 
 	newBar:CreateDriver()
 	newBar:CreateHandler()
@@ -109,7 +109,7 @@ function Bar:InitializeBar()
 		if type(SpecializationUtil) == "table" then
 			self:RegisterEvent("ASCENSION_CA_SPECIALIZATION_ACTIVE_ID_CHANGED", "ACTIVE_TALENT_GROUP_CHANGED")
 		end
-		if Neuron.isWoWRetail or Neuron.isWoWWotLK or Neuron.isAscensionCoA then
+		if MacroForge.isWoWRetail or MacroForge.isWoWWotLK or MacroForge.isAscensionCoA then
 			self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 			self:RegisterEvent("PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED")
 		end
@@ -144,9 +144,9 @@ end
 function Bar:ACTIONBAR_SHOWHIDEGRID(show)
 
 	if show then
-		Neuron.dragging = true
+		MacroForge.dragging = true
 	else
-		Neuron.dragging = false
+		MacroForge.dragging = false
 	end
 
 	--don't show the grid if the bar is locked and the right key isn't pressed
@@ -170,12 +170,12 @@ end
 ---This function is used for creating brand new bars, and it is really just a wrapper for the Bar constructor with a couple of assumptions and checks
 function Bar:CreateNewBar(class)
 
-	if not class or not Neuron.registeredBarData[class] then
-		Neuron:PrintBarTypes()
+	if not class or not MacroForge.registeredBarData[class] then
+		MacroForge:PrintBarTypes()
 		return
 	end
 
-	local barDB = Neuron.registeredBarData[class].barDB
+	local barDB = MacroForge.registeredBarData[class].barDB
 	local barID = 1
 	while rawget(barDB, barID) do
 		barID = barID + 1
@@ -188,12 +188,12 @@ function Bar:CreateNewBar(class)
 
 	Bar.ChangeSelectedBar(newBar)
 
-	if Neuron.barEditMode then
+	if MacroForge.barEditMode then
 		newBar:PrepareForEditMode(true)
 	end
 	--TODO: Show the transparent blue overlay that we show in the edit mode
 end
-Neuron.CreateNewBar = Bar.CreateNewBar --this is so the slash function works correctly
+MacroForge.CreateNewBar = Bar.CreateNewBar --this is so the slash function works correctly
 
 
 function Bar:DeleteBar()
@@ -202,7 +202,7 @@ function Bar:DeleteBar()
 	self.handler:SetAttribute("showstates", "homestate")
 	self:ClearStates(self.handler, "homestate")
 
-	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
+	for state, values in pairs(MacroForge.MANAGED_BAR_STATES) do
 		if self.data[state] and self[state] and self[state].registered then
 			if state == "custom" and self.data.customRange then
 				local start = tonumber(string.match(self.data.customRange, "^%d+"))
@@ -244,28 +244,28 @@ function Bar:DeleteBar()
 	end
 
 	local index --find the location of our bar in the bar table
-	for i,v in ipairs(Neuron.bars) do
+	for i,v in ipairs(MacroForge.bars) do
 		if v == self then
 			index = i
 		end
 	end
 
 	if index then --if our index was found (it should always be found) remove it from the array
-		table.remove(Neuron.bars, index)
+		table.remove(MacroForge.bars, index)
 	end
 
-	Neuron.currentBar = nil
+	MacroForge.currentBar = nil
 
-	for i,v in pairs(Neuron.bars) do --update bars to reflect new names, if they have new names
+	for i,v in pairs(MacroForge.bars) do --update bars to reflect new names, if they have new names
 		v:UpdateBarStatus()
 	end
 end
 
-function Bar:AddObjectToBar() --called from NeuronGUI
+function Bar:AddObjectToBar() --called from MacroForgeGUI
 	local id = #self.buttons + 1
 
 	if #self.buttons < self.objMax then
-		local buttonBaseObject = Neuron.registeredBarData[self.class].objTemplate
+		local buttonBaseObject = MacroForge.registeredBarData[self.class].objTemplate
 		buttonBaseObject.new(self, id)
 	end
 
@@ -277,7 +277,7 @@ function Bar:AddObjectToBar() --called from NeuronGUI
 	self:UpdateObjectVisibility()
 end
 
-function Bar:RemoveObjectFromBar() --called from NeuronGUI
+function Bar:RemoveObjectFromBar() --called from MacroForgeGUI
 
 	local id = #self.buttons --always the last button
 
@@ -353,7 +353,7 @@ function Bar:PrepareForEditMode(activateOverlay)
 		self:SetSize()
 	end
 
-	if Neuron.barEditMode then
+	if MacroForge.barEditMode then
 		if not self.editFrame then
 			self.editFrame = GetBarEditor().allocate(self, function(overlay, button, down)
 				overlay.bar:OnClick(button, down)
@@ -384,17 +384,17 @@ end
 
 ---@param newBar Bar|nil
 function Bar.ChangeSelectedBar(newBar)
-	if newBar == Neuron.currentBar then
+	if newBar == MacroForge.currentBar then
 		return
 	end
 
-	if Neuron.currentBar and Neuron.currentBar.editFrame then
-		GetBarEditor().deactivate(Neuron.currentBar.editFrame)
+	if MacroForge.currentBar and MacroForge.currentBar.editFrame then
+		GetBarEditor().deactivate(MacroForge.currentBar.editFrame)
 	end
 
-	Neuron.currentBar = newBar
+	MacroForge.currentBar = newBar
 
-	if newBar and Neuron.barEditMode then
+	if newBar and MacroForge.barEditMode then
 		newBar:PrepareForEditMode(true)
 	elseif newBar and newBar.editFrame then
 		GetBarEditor().activate(newBar.editFrame)
@@ -436,7 +436,7 @@ end
 ---this function is set via a repeating scheduled timer in SetAutoHide()
 function Bar:AutoHideUpdate()
 	if self:GetAutoHide() and self.handler~=nil then
-		if not Neuron.buttonEditMode and not Neuron.barEditMode and not Neuron.bindingMode then
+		if not MacroForge.buttonEditMode and not MacroForge.barEditMode and not MacroForge.bindingMode then
 			if self:IsShown() then
 				self.handler:SetAlpha(1)
 			else
@@ -573,7 +573,7 @@ function Bar:UpdateLegacyStateDrivers(handler)
 		return
 	end
 
-	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
+	for state, values in pairs(MacroForge.MANAGED_BAR_STATES) do
 		if not self[state] then
 			self[state] = {}
 		end
@@ -606,11 +606,11 @@ end
 
 
 function Bar:AddVisibilityDriver(handler, state, conditions)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		return
 	end
 
-	if Neuron.MANAGED_BAR_STATES[state] then
+	if MacroForge.MANAGED_BAR_STATES[state] then
 		RegisterAttributeDriver(handler, "state-"..state, conditions);
 
 		if handler:GetAttribute("activestates"):find(state) then
@@ -629,7 +629,7 @@ end
 
 
 function Bar:ClearVisibilityDriver(handler, state)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		self.vis[state].registered = false
 		return
 	end
@@ -643,14 +643,14 @@ end
 
 
 function Bar:UpdateBarVisibility(driver)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		if self.handler then
 			self.handler:SetAttribute("hidestates", self.data.hidestates or ":")
 		end
 		return
 	end
 
-	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
+	for state, values in pairs(MacroForge.MANAGED_BAR_STATES) do
 		if self.data.hidestates:find(":"..state) then
 			if not self.vis[state] or not self.vis[state].registered then
 				if not self.vis[state] then
@@ -658,8 +658,8 @@ function Bar:UpdateBarVisibility(driver)
 				end
 				if state == "stance" and self.data.hidestates:find(":stance8") then
 					local prowlCond = "[stance:2/3,stealth] stance8"
-					if Neuron.StanceMap and Neuron.StanceMap:UsesLegacyDrivers() then
-						local catEntry = Neuron.StanceMap:GetEntryForSlot(1)
+					if MacroForge.StanceMap and MacroForge.StanceMap:UsesLegacyDrivers() then
+						local catEntry = MacroForge.StanceMap:GetEntryForSlot(1)
 						if catEntry and catEntry.index then
 							prowlCond = format("[bonusbar:%s,stealth:1] stance8", catEntry.index)
 						end
@@ -679,21 +679,21 @@ function Bar:BuildStateMap(remapState)
 	local statemap, state, map, remap, homestate = "", remapState:gsub("paged", "bar")
 	for states in gmatch(self.data.remap, "[^;]+") do
 		map, remap = (":"):split(states)
-		if remapState == "stance" and Neuron.class == "ROGUE" and map == "1" then
+		if remapState == "stance" and MacroForge.class == "ROGUE" and map == "1" then
 			--map = "2"
 		end
 		local condition = state..":"..map
-		if remapState == "stance" and Neuron.StanceMap then
-			condition = Neuron.StanceMap:GetConditionPrefix(map)
+		if remapState == "stance" and MacroForge.StanceMap then
+			condition = MacroForge.StanceMap:GetConditionPrefix(map)
 		end
 		if not homestate then
 			statemap = statemap.."["..condition.."] homestate; "; homestate = true
 		else
 			local newstate = remapState..remap
 
-			if Neuron.MANAGED_BAR_STATES[remapState] and
-					Neuron.MANAGED_BAR_STATES[remapState].homestate and
-					Neuron.MANAGED_BAR_STATES[remapState].homestate == newstate then
+			if MacroForge.MANAGED_BAR_STATES[remapState] and
+					MacroForge.MANAGED_BAR_STATES[remapState].homestate and
+					MacroForge.MANAGED_BAR_STATES[remapState].homestate == newstate then
 				statemap = statemap.."["..condition.."] homestate; "
 			else
 				statemap = statemap.."["..condition.."] "..newstate.."; "
@@ -706,23 +706,23 @@ end
 
 
 function Bar:AddStates(handler, state, conditions)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		return
 	end
 
 	if state then
-		if Neuron.MANAGED_BAR_STATES[state] then
+		if MacroForge.MANAGED_BAR_STATES[state] then
 			RegisterAttributeDriver(handler, "state-"..state, conditions);
 		end
-		if Neuron.MANAGED_BAR_STATES[state].homestate then
-			handler:SetAttribute("handler-homestate", Neuron.MANAGED_BAR_STATES[state].homestate)
+		if MacroForge.MANAGED_BAR_STATES[state].homestate then
+			handler:SetAttribute("handler-homestate", MacroForge.MANAGED_BAR_STATES[state].homestate)
 		end
 		self[state].registered = true
 	end
 end
 
 function Bar:ClearStates(handler, state)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		if self[state] then
 			self[state].registered = false
 		end
@@ -730,7 +730,7 @@ function Bar:ClearStates(handler, state)
 	end
 
 	if state ~= "homestate" then
-		if Neuron.MANAGED_BAR_STATES[state].homestate then
+		if MacroForge.MANAGED_BAR_STATES[state].homestate then
 			handler:SetAttribute("handler-homestate", nil)
 		end
 		handler:SetAttribute("state-"..state, nil)
@@ -743,13 +743,13 @@ end
 
 
 function Bar:UpdateStates(handler)
-	if Neuron.usesLegacyStateDrivers then
+	if MacroForge.usesLegacyStateDrivers then
 		self:InitLegacyStates(handler)
 		self:UpdateLegacyStateDrivers(handler)
 		return
 	end
 
-	for state, values in pairs(Neuron.MANAGED_BAR_STATES) do
+	for state, values in pairs(MacroForge.MANAGED_BAR_STATES) do
 		if self.data[state] then
 			if not self[state] or not self[state].registered then
 				local statemap
@@ -795,11 +795,11 @@ function Bar:CreateDriver()
 	end
 	]]
 
-	local driver = CreateFrame("Frame", "NeuronBarDriver"..self.id, UIParent, "SecureHandlerStateTemplate")
+	local driver = CreateFrame("Frame", "MacroForgeBarDriver"..self.id, UIParent, "SecureHandlerStateTemplate")
 
 	driver:SetID(self.id)
-	--Dynamicly builds driver attributes based on stated in Neuron.MANAGED_BAR_STATES using localized attribute text from a above
-	for _, stateInfo in pairs(Neuron.MANAGED_BAR_STATES) do
+	--Dynamicly builds driver attributes based on stated in MacroForge.MANAGED_BAR_STATES using localized attribute text from a above
+	for _, stateInfo in pairs(MacroForge.MANAGED_BAR_STATES) do
 		local action = DRIVER_BASE_ACTION:gsub("<MODIFIER>", stateInfo.modifier)
 		driver:SetAttribute("_onstate-"..stateInfo.modifier, action)
 	end
@@ -866,12 +866,12 @@ function Bar:CreateHandler()
 	end
 	]]
 
-	local handler = CreateFrame("Frame", "NeuronBarHandler"..self.id, self.driver, "SecureHandlerStateTemplate")
+	local handler = CreateFrame("Frame", "MacroForgeBarHandler"..self.id, self.driver, "SecureHandlerStateTemplate")
 
 	handler:SetID(self.id)
 
-	--Dynamicly builds handler actions based on states in Neuron.MANAGED_BAR_STATES using Global text
-	for _, stateInfo in pairs(Neuron.MANAGED_BAR_STATES) do
+	--Dynamicly builds handler actions based on states in MacroForge.MANAGED_BAR_STATES using Global text
+	for _, stateInfo in pairs(MacroForge.MANAGED_BAR_STATES) do
 		local action = HANDLER_BASE_ACTION:gsub("<MODIFIER>", stateInfo.modifier)
 		handler:SetAttribute("_onstate-"..stateInfo.modifier, action)
 	end
@@ -1049,7 +1049,7 @@ end
 
 
 function Bar:CreateWatcher()
-	local watcher = CreateFrame("Frame", "NeuronBarWatcher"..self.id, self.handler, "SecureHandlerStateTemplate")
+	local watcher = CreateFrame("Frame", "MacroForgeBarWatcher"..self.id, self.handler, "SecureHandlerStateTemplate")
 
 	watcher:SetID(self.id)
 
@@ -1070,7 +1070,7 @@ function Bar:CreateWatcher()
 
             end
             ]])
-	if Neuron.isWoWRetail and RegisterAttributeDriver then
+	if MacroForge.isWoWRetail and RegisterAttributeDriver then
 		RegisterAttributeDriver(watcher, "state-".."petbattle", "[petbattle] hide; [nopetbattle] show");
 	end
 end
@@ -1156,7 +1156,7 @@ function Bar:SetPosition()
 		self:ClearAllPoints()
 		self:SetPoint("CENTER", "UIParent", point, x, y)
 		self:SetUserPlaced(true)
-		self:SetFrameStrata(Neuron.STRATAS[self:GetStrata()])
+		self:SetFrameStrata(MacroForge.STRATAS[self:GetStrata()])
 
 		if self.Message then
 			self.Message:SetText(point:lower().."     x: "..format("%0.2f", x).."     y: "..format("%0.2f", y))
@@ -1166,7 +1166,7 @@ function Bar:SetPosition()
 	end
 end
 
---Fakes a state change for a given bar, calls up the counterpart function in NeuronButton
+--Fakes a state change for a given bar, calls up the counterpart function in MacroForgeButton
 function Bar:FakeStateChange(state)
 	self.handler:SetAttribute("fauxstate", state)
 
@@ -1210,7 +1210,7 @@ function Bar:SetObjectLoc()
 		buttons = self.buttons
 	else
 		for k,v in pairs (self.data.objectList) do
-			table.insert(buttons, Neuron.FOBTNIndex[v])
+			table.insert(buttons, MacroForge.FOBTNIndex[v])
 		end
 	end
 
@@ -1306,7 +1306,7 @@ function Bar:SetPerimeter()
 		buttons = self.buttons
 	else
 		for k,v in pairs (self.data.objectList) do
-			table.insert(buttons, Neuron.FOBTNIndex[v])
+			table.insert(buttons, MacroForge.FOBTNIndex[v])
 		end
 	end
 	-----------------------------------------------
@@ -1364,14 +1364,14 @@ end
 
 
 function Bar:SetRemap_Stance()
-	local start = tonumber(Neuron.MANAGED_BAR_STATES.stance.homestate:match("%d+"))
+	local start = tonumber(MacroForge.MANAGED_BAR_STATES.stance.homestate:match("%d+"))
 
 	if start then
 		self.data.remap = ""
 
-		if Neuron.StanceMap and Neuron.StanceMap.slots and #Neuron.StanceMap.slots > 0 then
+		if MacroForge.StanceMap and MacroForge.StanceMap.slots and #MacroForge.StanceMap.slots > 0 then
 			self.data.remap = self.data.remap..start..":"..start..";"
-			for slot, entry in ipairs(Neuron.StanceMap.slots) do
+			for slot, entry in ipairs(MacroForge.StanceMap.slots) do
 				self.data.remap = self.data.remap..entry.uiIndex..":"..slot..";"
 			end
 		else
@@ -1382,7 +1382,7 @@ function Bar:SetRemap_Stance()
 
 		self.data.remap = gsub(self.data.remap, ";$", "")
 
-		if Neuron.class == "ROGUE" then
+		if MacroForge.class == "ROGUE" then
 			self.data.remap = self.data.remap..";2:2"
 		end
 	end
@@ -1414,13 +1414,13 @@ function Bar:OnClick(click, down)
 	if IsShiftKeyDown() and not down then
 		GetBarEditor().microadjust(self.editFrame)
 	elseif click == "RightButton" and not down then
-		if Neuron:EnsureGUI() and not addonTable.NeuronEditor then
-			Neuron.NeuronGUI:CreateEditor()
+		if MacroForge:EnsureGUI() and not addonTable.MacroForgeEditor then
+			MacroForge.MacroForgeGUI:CreateEditor()
 		end
 	end
 
-	if addonTable.NeuronEditor and Neuron.NeuronGUI then
-		Neuron.NeuronGUI:RefreshEditor()
+	if addonTable.MacroForgeEditor and MacroForge.MacroForgeGUI then
+		MacroForge.MacroForgeGUI:RefreshEditor()
 	end
 end
 
@@ -1558,11 +1558,11 @@ function Bar:SetState(msg, gui, checked)
 		local command = msg:gsub(state, "");
 		command = command:gsub("^%s+", "")
 
-		if not Neuron.MANAGED_BAR_STATES[state] then
+		if not MacroForge.MANAGED_BAR_STATES[state] then
 			if not gui then
-				Neuron:PrintStateList()
+				MacroForge:PrintStateList()
 			else
-				Neuron:Print("GUI option error")
+				MacroForge:Print("GUI option error")
 			end
 			return
 		end
@@ -1592,7 +1592,7 @@ function Bar:SetState(msg, gui, checked)
 			-- separate secondary Stealth flag is cleared. CoA classes (e.g.
 			-- Venomancer) legitimately use Form as home state AND Stealth as a
 			-- secondary modifier — do not clear stealth for them.
-			if Neuron.class == "ROGUE" and self.data.stealth then
+			if MacroForge.class == "ROGUE" and self.data.stealth then
 				self.data.stealth = false
 			end
 
@@ -1628,7 +1628,7 @@ function Bar:SetState(msg, gui, checked)
 
 						count = count + 1
 					else
-						Neuron:Print(states.." not formated properly and skipped")
+						MacroForge:Print(states.." not formated properly and skipped")
 					end
 				end
 
@@ -1649,7 +1649,7 @@ function Bar:SetState(msg, gui, checked)
 			for states in gmatch(self.data.hidestates, "custom%d+") do
 				self.data.hidestates = self.data.hidestates:gsub(states..":", "")
 			end
-			if not self.data.hidestates then Neuron:Print("OOPS")
+			if not self.data.hidestates then MacroForge:Print("OOPS")
 			end
 		end
 
@@ -1664,7 +1664,7 @@ function Bar:SetState(msg, gui, checked)
 	elseif not gui then
 		wipe(statetable)
 
-		for k,v in pairs(Neuron.MANAGED_BAR_STATES) do
+		for k,v in pairs(MacroForge.MANAGED_BAR_STATES) do
 
 			if self.data[k] then
 				table.insert(statetable, v.localizedName..": on")
@@ -1676,7 +1676,7 @@ function Bar:SetState(msg, gui, checked)
 		table.sort(statetable)
 
 		for k,v in ipairs(statetable) do
-			Neuron:Print(v)
+			MacroForge:Print(v)
 		end
 	end
 
@@ -1689,20 +1689,20 @@ function Bar:SetVisibility(toggle, visible)
 	toggle = toggle:lower()
 
 	if not toggle
-		or not Neuron.STATES[toggle]
+		or not MacroForge.STATES[toggle]
 	then
 		return
 	end
 
 	-- update the preferences - model
-	if Neuron.STATES[toggle] or (toggle == "custom" and self.data.customNames) then
+	if MacroForge.STATES[toggle] or (toggle == "custom" and self.data.customNames) then
 		if visible and self.data.hidestates:find(toggle) then
 			self.data.hidestates = self.data.hidestates:gsub(toggle..":", "")
 		elseif not visible and not self.data.hidestates:find(toggle) then
 			self.data.hidestates = self.data.hidestates..toggle..":"
 		end
 	else
-		Neuron:Print(L["Invalid index"]); return
+		MacroForge:Print(L["Invalid index"]); return
 	end
 
 	self.vischanged = true
