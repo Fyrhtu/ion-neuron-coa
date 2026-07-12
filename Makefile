@@ -1,5 +1,9 @@
-NEURON_SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-NEURON_INSTALL_DIR ?= /home/george/Games/AscensionLinux/resources/client/Interface/AddOns/MacroForge
+MACROFORGE_SRC := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+MACROFORGE_INSTALL_DIR ?= /mnt/c/Ascension/Launcher/resources/ascension-live/Interface/AddOns/MacroForge
+
+# Back-compat aliases for older env vars / docs
+NEURON_SRC := $(MACROFORGE_SRC)
+NEURON_INSTALL_DIR ?= $(MACROFORGE_INSTALL_DIR)
 
 # Core MacroForge install excludes LoD companion (shipped as sibling AddOn).
 RSYNC_EXCLUDES := \
@@ -21,7 +25,7 @@ RSYNC_EXCLUDES := \
 
 VERSION := $(shell grep '^## Version:' MacroForge.toc | sed 's/.*: //')
 ADDON_NAME := MacroForge
-GUI_SRC := $(NEURON_SRC)/MacroForge_GUI
+GUI_SRC := $(MACROFORGE_SRC)/MacroForge_GUI
 DIST_DIR := dist
 DIST_NAME := $(ADDON_NAME)-$(VERSION)
 STAGING := $(DIST_DIR)/$(ADDON_NAME)
@@ -37,50 +41,50 @@ version:
 package:
 	@rm -rf "$(DIST_DIR)"
 	@mkdir -p "$(STAGING)" "$(STAGING_GUI)"
-	rsync -a $(RSYNC_EXCLUDES) "$(NEURON_SRC)/" "$(STAGING)/"
+	rsync -a $(RSYNC_EXCLUDES) "$(MACROFORGE_SRC)/" "$(STAGING)/"
 	rsync -a --exclude='.git' "$(GUI_SRC)/" "$(STAGING_GUI)/"
 	@cd "$(DIST_DIR)" && zip -qr "$(DIST_NAME).zip" "$(ADDON_NAME)" MacroForge_GUI
 	@echo "Created $(DIST_DIR)/$(DIST_NAME).zip (MacroForge + MacroForge_GUI)"
 	@echo "Install: unzip into World of Warcraft/Interface/AddOns/"
 
 install:
-	@test -n "$(NEURON_INSTALL_DIR)" || (echo "NEURON_INSTALL_DIR is not set" && exit 1)
-	@mkdir -p "$(NEURON_INSTALL_DIR)"
-	@mkdir -p "$(dir $(NEURON_INSTALL_DIR))/MacroForge_GUI"
-	rsync -a --delete $(RSYNC_EXCLUDES) "$(NEURON_SRC)/" "$(NEURON_INSTALL_DIR)/"
-	rsync -a --delete --exclude='.git' "$(GUI_SRC)/" "$(dir $(NEURON_INSTALL_DIR))/MacroForge_GUI/"
-	@echo "Installed MacroForge to $(NEURON_INSTALL_DIR)"
-	@echo "Installed MacroForge_GUI to $(dir $(NEURON_INSTALL_DIR))/MacroForge_GUI"
+	@test -n "$(MACROFORGE_INSTALL_DIR)" || (echo "MACROFORGE_INSTALL_DIR is not set" && exit 1)
+	@mkdir -p "$(MACROFORGE_INSTALL_DIR)"
+	@mkdir -p "$(dir $(MACROFORGE_INSTALL_DIR))/MacroForge_GUI"
+	rsync -a --delete $(RSYNC_EXCLUDES) "$(MACROFORGE_SRC)/" "$(MACROFORGE_INSTALL_DIR)/"
+	rsync -a --delete --exclude='.git' "$(GUI_SRC)/" "$(dir $(MACROFORGE_INSTALL_DIR))/MacroForge_GUI/"
+	@echo "Installed MacroForge to $(MACROFORGE_INSTALL_DIR)"
+	@echo "Installed MacroForge_GUI to $(dir $(MACROFORGE_INSTALL_DIR))/MacroForge_GUI"
 
 symlink:
-	@test -n "$(NEURON_INSTALL_DIR)" || (echo "NEURON_INSTALL_DIR is not set" && exit 1)
-	@mkdir -p "$(dir $(NEURON_INSTALL_DIR))"
-	@ln -sfn "$(NEURON_SRC)" "$(NEURON_INSTALL_DIR)"
-	@ln -sfn "$(GUI_SRC)" "$(dir $(NEURON_INSTALL_DIR))/MacroForge_GUI"
-	@echo "Symlinked $(NEURON_INSTALL_DIR) -> $(NEURON_SRC)"
+	@test -n "$(MACROFORGE_INSTALL_DIR)" || (echo "MACROFORGE_INSTALL_DIR is not set" && exit 1)
+	@mkdir -p "$(dir $(MACROFORGE_INSTALL_DIR))"
+	@ln -sfn "$(MACROFORGE_SRC)" "$(MACROFORGE_INSTALL_DIR)"
+	@ln -sfn "$(GUI_SRC)" "$(dir $(MACROFORGE_INSTALL_DIR))/MacroForge_GUI"
+	@echo "Symlinked $(MACROFORGE_INSTALL_DIR) -> $(MACROFORGE_SRC)"
 	@echo "Symlinked MacroForge_GUI -> $(GUI_SRC)"
 
 watch:
-	@test -n "$(NEURON_INSTALL_DIR)" || (echo "NEURON_INSTALL_DIR is not set" && exit 1)
+	@test -n "$(MACROFORGE_INSTALL_DIR)" || (echo "MACROFORGE_INSTALL_DIR is not set" && exit 1)
 	@$(MAKE) install
-	@echo "Watching $(NEURON_SRC) for changes..."
+	@echo "Watching $(MACROFORGE_SRC) for changes..."
 	@while inotifywait -r -e modify,create,delete,move \
 		--exclude '(\.git|dist|\.idea|\.libcache)' \
-		"$(NEURON_SRC)" >/dev/null; do \
+		"$(MACROFORGE_SRC)" >/dev/null; do \
 		$(MAKE) install; \
 	done
 
 clean:
-	@test -n "$(NEURON_INSTALL_DIR)" || (echo "NEURON_INSTALL_DIR is not set" && exit 1)
-	@if [ -L "$(NEURON_INSTALL_DIR)" ]; then \
-		rm "$(NEURON_INSTALL_DIR)"; \
-		echo "Removed symlink $(NEURON_INSTALL_DIR)"; \
-	elif [ -d "$(NEURON_INSTALL_DIR)" ]; then \
-		rm -rf "$(NEURON_INSTALL_DIR)"; \
-		echo "Removed $(NEURON_INSTALL_DIR)"; \
+	@test -n "$(MACROFORGE_INSTALL_DIR)" || (echo "MACROFORGE_INSTALL_DIR is not set" && exit 1)
+	@if [ -L "$(MACROFORGE_INSTALL_DIR)" ]; then \
+		rm "$(MACROFORGE_INSTALL_DIR)"; \
+		echo "Removed symlink $(MACROFORGE_INSTALL_DIR)"; \
+	elif [ -d "$(MACROFORGE_INSTALL_DIR)" ]; then \
+		rm -rf "$(MACROFORGE_INSTALL_DIR)"; \
+		echo "Removed $(MACROFORGE_INSTALL_DIR)"; \
 	else \
-		echo "Nothing to clean at $(NEURON_INSTALL_DIR)"; \
+		echo "Nothing to clean at $(MACROFORGE_INSTALL_DIR)"; \
 	fi
-	@GUI_INSTALL="$(dir $(NEURON_INSTALL_DIR))/MacroForge_GUI"; \
+	@GUI_INSTALL="$(dir $(MACROFORGE_INSTALL_DIR))/MacroForge_GUI"; \
 	if [ -L "$$GUI_INSTALL" ]; then rm "$$GUI_INSTALL"; \
 	elif [ -d "$$GUI_INSTALL" ]; then rm -rf "$$GUI_INSTALL"; fi

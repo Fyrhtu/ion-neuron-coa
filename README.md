@@ -65,9 +65,11 @@ The git root is the `MacroForge` package itself. The LoadOnDemand GUI lives in `
 
 ```bash
 # Example install target (adjust path)
-export NEURON_INSTALL_DIR="/path/to/Interface/AddOns/MacroForge"
+export MACROFORGE_INSTALL_DIR="/path/to/Interface/AddOns/MacroForge"
 make install   # installs MacroForge + MacroForge_GUI
 ```
+
+Local workspace path (this machine): `C:\grok\macroforge-coa` / `/mnt/c/grok/macroforge-coa`
 
 Helpful in-game tools: **BugGrabber**, **BugSack**, `/eventtrace`, `/framestack`.
 
